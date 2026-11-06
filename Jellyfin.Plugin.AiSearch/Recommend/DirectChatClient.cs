@@ -346,9 +346,36 @@ public class DirectChatClient
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-Failover-Zero-Delay", "true");
         }
 
-        using var response = await client.PostAsJsonAsync(url, payload, cancellationToken).ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return (response.IsSuccessStatusCode, (int)response.StatusCode, body);
+        var candidateUrls = new List<string> { url };
+        if (url.Contains("omniroute", StringComparison.OrdinalIgnoreCase))
+        {
+            candidateUrls.Add(url.Replace("omniroute", "100.64.0.1", StringComparison.OrdinalIgnoreCase));
+            candidateUrls.Add(url.Replace("omniroute", "172.17.0.1", StringComparison.OrdinalIgnoreCase));
+            candidateUrls.Add(url.Replace("omniroute", "127.0.0.1", StringComparison.OrdinalIgnoreCase));
+        }
+
+        HttpResponseMessage? response = null;
+        string body = string.Empty;
+
+        foreach (var targetUrl in candidateUrls)
+        {
+            try
+            {
+                response?.Dispose();
+                response = await client.PostAsJsonAsync(targetUrl, payload, cancellationToken).ConfigureAwait(false);
+                body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // try next candidate URL
+            }
+        }
+
+        return (response?.IsSuccessStatusCode ?? false, (int)(response?.StatusCode ?? System.Net.HttpStatusCode.BadGateway), body);
     }
 
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];

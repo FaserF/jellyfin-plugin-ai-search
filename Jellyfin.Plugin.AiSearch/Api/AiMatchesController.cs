@@ -12,6 +12,7 @@ using Jellyfin.Plugin.AiSearch.Search;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -134,6 +135,13 @@ public class AiMatchesController : ControllerBase
                 var people = _libraryManager.GetPeople(item).Select(p => p.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Take(12).ToList();
                 var explanation = MatchExplainer.Explain(item, term, people, french);
                 var episode = item as Episode;
+                var hasPrimary = item.HasImage(ImageType.Primary);
+                var primaryId = hasPrimary
+                    ? item.Id.ToString("N")
+                    : (episode?.Series != null && episode.Series.HasImage(ImageType.Primary)
+                        ? episode.Series.Id.ToString("N")
+                        : null);
+
                 return new
                 {
                     id = item.Id.ToString("N"),
@@ -145,7 +153,9 @@ public class AiMatchesController : ControllerBase
                     episodeNumber = episode?.IndexNumber,
                     similarity = m.Similarity,
                     why = explanation.Why,
-                    snippet = explanation.Snippet
+                    snippet = explanation.Snippet,
+                    hasImage = primaryId != null,
+                    primaryImageId = primaryId
                 };
             })
             .ToList();

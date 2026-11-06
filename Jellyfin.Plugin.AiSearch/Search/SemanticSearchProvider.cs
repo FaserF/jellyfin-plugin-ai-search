@@ -160,6 +160,19 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             return false;
         }
 
+        // When SemanticSearchFallbackOnly is active and query is not a sentence,
+        // check whether native title matches already exist in the user's library.
+        // If they do, step aside immediately with zero AI latency so native results show up instantly.
+        if (config.SemanticSearchFallbackOnly && !TitleMatcher.LooksLikeSentenceQuery(term))
+        {
+            var testUser = query.UserId is Guid checkUid && checkUid != Guid.Empty ? _userManager.GetUserById(checkUid) : null;
+            if (HasDirectTitleMatch(query, testUser, AllowedKinds(query)))
+            {
+                RecordSkip(trace, "title_match_exists", enabled: true);
+                return false;
+            }
+        }
+
         if (System.Text.RegularExpressions.Regex.IsMatch(term, @"\b(yt|youtube)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
         {
             RecordSkip(trace, "youtube_query_bypass", enabled: true);
@@ -225,7 +238,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         // Jellyfin answers a search only once every provider has, so this
         // budget is the most meaning matches may ever add to a search. The
         // backend call itself is not cut short (see CoalescingCache).
-        var budget = TimeSpan.FromMilliseconds(Math.Clamp(config.SemanticSearchTimeoutMs, 250, 10000));
+        var budget = TimeSpan.FromMilliseconds(Math.Clamp(config.SemanticSearchTimeoutMs, 250, 4000));
         var stopwatch = Stopwatch.StartNew();
         using var timeoutSource = new CancellationTokenSource(budget);
         using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
@@ -264,17 +277,22 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
 
             return output;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            var isTimeout = ex is OperationCanceledException or TimeoutException;
-            if (!isTimeout)
-            {
-                WarnRateLimited(ex.Message);
-            }
-
             if (trace is not null)
             {
-                trace.Error = isTimeout ? "timeout" : ex.Message;
+                trace.Error = "timeout";
+                trace.DurationMs = stopwatch.ElapsedMilliseconds;
+            }
+
+            return Array.Empty<SearchResult>();
+        }
+        catch (Exception ex)
+        {
+            WarnRateLimited(ex.Message);
+            if (trace is not null)
+            {
+                trace.Error = ex.Message;
                 trace.DurationMs = stopwatch.ElapsedMilliseconds;
             }
 

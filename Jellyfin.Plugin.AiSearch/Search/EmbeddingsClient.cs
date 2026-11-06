@@ -42,24 +42,64 @@ public class EmbeddingsClient
         }
 
         using var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(target.TimeoutSeconds);
+        client.Timeout = TimeSpan.FromSeconds(Math.Min(target.TimeoutSeconds, 10));
         if (!string.IsNullOrEmpty(target.ApiKey))
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", target.ApiKey);
         }
 
-        // The configured embeddings endpoint is a full URL (like the chat endpoint),
-        // used verbatim, not a base to which a path is appended.
-        using var response = await client
-            .PostAsJsonAsync(target.BaseUrl, new { model = target.Model, input = inputs }, cancellationToken)
-            .ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        if (target.BaseUrl.Contains("20128", StringComparison.OrdinalIgnoreCase)
+            || target.BaseUrl.Contains("omniroute", StringComparison.OrdinalIgnoreCase))
         {
-            throw new EmbeddingsException($"Embeddings request failed ({(int)response.StatusCode}): {Truncate(body, 300)}");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Session-Source", "jellyfin-ai-search");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cache-Strategy", "aggressive");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Failover-Zero-Delay", "true");
         }
 
-        return Parse(body, inputs.Count);
+        var candidateUrls = new List<string> { target.BaseUrl };
+        if (target.BaseUrl.Contains("omniroute", StringComparison.OrdinalIgnoreCase))
+        {
+            candidateUrls.Add(target.BaseUrl.Replace("omniroute", "100.64.0.1", StringComparison.OrdinalIgnoreCase));
+            candidateUrls.Add(target.BaseUrl.Replace("omniroute", "172.17.0.1", StringComparison.OrdinalIgnoreCase));
+            candidateUrls.Add(target.BaseUrl.Replace("omniroute", "127.0.0.1", StringComparison.OrdinalIgnoreCase));
+        }
+
+        HttpResponseMessage? response = null;
+        string? body = null;
+        Exception? lastEx = null;
+
+        foreach (var url in candidateUrls)
+        {
+            try
+            {
+                response?.Dispose();
+                response = await client
+                    .PostAsJsonAsync(url, new { model = target.Model, input = inputs }, cancellationToken)
+                    .ConfigureAwait(false);
+                body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    lastEx = null;
+                    break;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                lastEx = ex;
+            }
+        }
+
+        if (response == null || !response.IsSuccessStatusCode)
+        {
+            if (lastEx != null)
+            {
+                throw new EmbeddingsException($"Embeddings request failed: {lastEx.Message}", lastEx);
+            }
+
+            throw new EmbeddingsException($"Embeddings request failed ({(int)(response?.StatusCode ?? System.Net.HttpStatusCode.BadGateway)}): {Truncate(body ?? string.Empty, 300)}");
+        }
+
+        return Parse(body!, inputs.Count);
     }
 
     private static List<float[]> Parse(string body, int expected)
@@ -129,6 +169,14 @@ public class EmbeddingsException : Exception
     /// <param name="message">The error message.</param>
     public EmbeddingsException(string message)
         : base(message)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="EmbeddingsException"/> class with inner exception.</summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public EmbeddingsException(string message, Exception innerException)
+        : base(message, innerException)
     {
     }
 }

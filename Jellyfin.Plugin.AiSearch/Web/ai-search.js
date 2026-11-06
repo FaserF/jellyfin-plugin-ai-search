@@ -519,6 +519,8 @@
     '.ais-rimg{position:relative;width:100%;aspect-ratio:2/3;background:#20242b center/cover no-repeat;' +
       'box-shadow:0 0 0 1px rgba(255,255,255,.07);transition:box-shadow .15s,transform .15s}' +
     '.ais-rcard.wide .ais-rimg{aspect-ratio:16/9}' +
+    '.ais-rimg.ais-noimg{display:flex;align-items:center;justify-content:center;background:#181c22;color:' + ACCENT + '}' +
+    '.ais-rimg.ais-noimg .ais-ic{width:28px;height:28px;opacity:.7}' +
     '.ais-rcard:hover .ais-rimg,.ais-rcard:focus .ais-rimg{transform:translateY(-3px);box-shadow:0 0 0 2px ' + ACCENT + '}' +
     // Every text slot has a fixed height, so a card never changes size when
     // its reason arrives, and the row never pushes the page around.
@@ -1169,10 +1171,52 @@
         var timer = null;
         var lastTerm = null;
 
+        var activeMatchesReq = null;
+
         function isSearchUrl(url) {
-            if (!url || !/searchterm=/i.test(url)) { return false; }
-            var path = String(url).split('#')[0].replace(/\?.*$/, '');
-            return /\/(items|search\/hints)$/i.test(path);
+            if (!url) { return false; }
+            var s = String(url).toLowerCase();
+            return s.indexOf('searchterm=') >= 0 || s.indexOf('/search/hints') >= 0 || (s.indexOf('/items') >= 0 && (s.indexOf('search') >= 0 || s.indexOf('term') >= 0));
+        }
+
+        function hookApiClient() {
+            var client = window.ApiClient;
+            if (!client) { return; }
+            var targets = [client];
+            var proto = Object.getPrototypeOf(client);
+            if (proto && proto !== Object.prototype) { targets.push(proto); }
+
+            targets.forEach(function (tgt) {
+                if (!tgt || tgt.__aisHooked) { return; }
+                tgt.__aisHooked = true;
+
+                if (typeof tgt.ajax === 'function') {
+                    var origAjax = tgt.ajax;
+                    tgt.ajax = function (options) {
+                        if (options && options.url && isSearchUrl(options.url)) {
+                            options.headers = options.headers || {};
+                            options.headers['X-AiSearch-Row'] = '1';
+                        }
+                        return origAjax.apply(this, arguments);
+                    };
+                }
+
+                if (typeof tgt.fetchWithCredentials === 'function') {
+                    var origFwc = tgt.fetchWithCredentials;
+                    tgt.fetchWithCredentials = function (url, options) {
+                        if (isSearchUrl(url)) {
+                            options = options || {};
+                            options.headers = options.headers || {};
+                            if (typeof options.headers.set === 'function') {
+                                options.headers.set('X-AiSearch-Row', '1');
+                            } else {
+                                options.headers['X-AiSearch-Row'] = '1';
+                            }
+                        }
+                        return origFwc.apply(this, arguments);
+                    };
+                }
+            });
         }
 
         function hashParam(name) {
@@ -1199,6 +1243,8 @@
         // Tell the server the web client shows meaning matches itself, so
         // Jellyfin's title results are not held back by them.
         function hookRequests() {
+            hookApiClient();
+
             var proto = window.XMLHttpRequest && window.XMLHttpRequest.prototype;
             if (proto && !proto.__aisHooked) {
                 proto.__aisHooked = true;
@@ -1222,14 +1268,19 @@
                     var url = typeof input === 'string' ? input : (input && input.url) || '';
                     if (isSearchUrl(url)) {
                         try {
-                            init = Object.assign({}, init || {});
-                            var headers = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
-                            headers.set('X-AiSearch-Row', '1');
-                            init.headers = headers;
-                            return original.call(this, input, init);
+                            if (typeof Request !== 'undefined' && input instanceof Request) {
+                                var newHeaders = new Headers(input.headers);
+                                newHeaders.set('X-AiSearch-Row', '1');
+                                input = new Request(input, { headers: newHeaders });
+                            } else {
+                                init = Object.assign({}, init || {});
+                                var headers = new Headers(init.headers || {});
+                                headers.set('X-AiSearch-Row', '1');
+                                init.headers = headers;
+                            }
                         } catch (e) { /* fall through */ }
                     }
-                    return original.apply(this, arguments);
+                    return original.call(this, input, init);
                 };
                 wrapped.__aisHooked = true;
                 window.fetch = wrapped;
@@ -1239,6 +1290,10 @@
         function load(term) {
             var a = api();
             if (!a || cache[term]) { schedule(); return; }
+            if (activeMatchesReq && typeof activeMatchesReq.abort === 'function') {
+                try { activeMatchesReq.abort(); } catch (e) { /* ignore */ }
+                activeMatchesReq = null;
+            }
             if (/\b(yt|youtube)\b/i.test(term)) {
                 cache[term] = { status: 'done', items: [] };
                 schedule();
@@ -1249,9 +1304,19 @@
             var parentId = hashParam('parentId');
             if (parentId) { url += '&parentId=' + encodeURIComponent(parentId); }
             schedule();
-            a.ajax({ type: 'GET', url: a.getUrl(url), dataType: 'json' })
-                .then(function (r) { entry.status = 'done'; entry.items = (r && r.items) || []; schedule(); })
-                .catch(function () { entry.status = 'done'; entry.items = []; schedule(); });
+            activeMatchesReq = a.ajax({ type: 'GET', url: a.getUrl(url), dataType: 'json' })
+                .then(function (r) {
+                    activeMatchesReq = null;
+                    entry.status = 'done';
+                    entry.items = (r && r.items) || [];
+                    schedule();
+                })
+                .catch(function () {
+                    activeMatchesReq = null;
+                    entry.status = 'done';
+                    entry.items = [];
+                    schedule();
+                });
         }
 
         function explain(term) {
@@ -1287,9 +1352,12 @@
             }
             var why = it.reason || it.why || '';
             var img = '';
-            try { img = api().getImageUrl(it.id, { type: 'Primary', maxHeight: wide ? 240 : 360, quality: 90 }); } catch (e) { /* no image */ }
+            var imgTargetId = it.primaryImageId || (it.hasImage ? it.id : null);
+            if (imgTargetId) {
+                try { img = api().getImageUrl(imgTargetId, { type: 'Primary', maxHeight: wide ? 240 : 360, quality: 90 }); } catch (e) { /* no image */ }
+            }
             return '<div class="ais-rcard' + (wide ? ' wide' : '') + '" data-id="' + esc(it.id) + '" tabindex="0" title="' + esc(title) + '">' +
-                '<div class="ais-rimg" style="background-image:url(\'' + esc(img) + '\')"></div>' +
+                (img ? '<div class="ais-rimg" style="background-image:url(\'' + esc(img) + '\')"></div>' : '<div class="ais-rimg ais-noimg">' + IC.sparkle + '</div>') +
                 '<div class="ais-rname">' + esc(title) + '</div>' +
                 '<div class="ais-rmeta">' + esc(meta.join(' \u00b7 ')) + '</div>' +
                 '<div class="ais-rwhy">' + IC.sparkle + '<span>' + esc(why) + '</span></div>' +
@@ -1444,6 +1512,7 @@
 
     ready(function () {
         injectStyles();
+        hookApiClient();
         refreshHealth();
         onRoute();
         window.addEventListener('hashchange', onRoute);

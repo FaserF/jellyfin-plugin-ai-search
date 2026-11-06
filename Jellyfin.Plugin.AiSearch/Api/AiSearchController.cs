@@ -259,20 +259,6 @@ public class AiSearchController : ControllerBase
 
         var ids = new List<string>();
 
-        if (isOmniRoute)
-        {
-            // First-class OmniRoute cascades & auto modes prioritized at the top
-            ids.AddRange(new[]
-            {
-                "auto/fast",
-                "gemini-fast-llm",
-                "fast-cascade",
-                "chat-cascade-mini",
-                "auto/chat",
-                "chat-cascade"
-            });
-        }
-
         if (!string.IsNullOrWhiteSpace(effectiveUrl))
         {
             try
@@ -296,6 +282,10 @@ public class AiSearchController : ControllerBase
                         }
                     }
                 }
+                else
+                {
+                    _logger.LogWarning("AiSearch: remote models endpoint {Url} returned status {StatusCode}", effectiveUrl, resp.StatusCode);
+                }
             }
             catch (Exception ex)
             {
@@ -305,7 +295,14 @@ public class AiSearchController : ControllerBase
 
         if (ids.Count > 0)
         {
-            return Ok(new { data = ids.Select(id => new { id }) });
+            // Dynamically group auto-routers and cascades to the top if provided by the remote server
+            var sortedIds = isOmniRoute
+                ? ids.OrderByDescending(id => id.StartsWith("auto/", StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(id => id.Contains("cascade", StringComparison.OrdinalIgnoreCase))
+                    .ToList()
+                : ids;
+
+            return Ok(new { data = sortedIds.Select(id => new { id }) });
         }
 
         return Ok(new { data = Array.Empty<object>() });
