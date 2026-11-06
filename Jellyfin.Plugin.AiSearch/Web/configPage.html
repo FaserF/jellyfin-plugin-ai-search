@@ -21,6 +21,16 @@
                     </p>
                 </div>
 
+                <div class="verticalSection" style="background: rgba(0, 164, 220, 0.1); border-left: 4px solid #00a4dc; padding: 1em; border-radius: 4px; margin-bottom: 2em;">
+                    <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 0.3em;">Repository &amp; Automatic Updates</div>
+                    <div style="font-size: 0.9em; line-height: 1.5;">
+                        To keep this plugin up to date and resolve <i>"Developer: Unknown / Repository: Unknown"</i> in the dashboard, add this repository to
+                        <b>Dashboard &rarr; Plugins &rarr; Repositories &rarr; + (Add)</b>:
+                        <br/>
+                        <code style="display:inline-block; margin-top:0.4em; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:3px; word-break:break-all;">https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/manifest.json</code>
+                    </div>
+                </div>
+
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label>
                         <input is="emby-checkbox" type="checkbox" id="Enabled" />
@@ -34,7 +44,7 @@
                     <h3 class="sectionTitle">1. Language model</h3>
                     <p class="fieldDescription">
                         The AI that reads your request and picks titles. Any OpenAI-compatible chat endpoint works
-                        (OpenAI, Ollama, OpenRouter, LiteLLM...), or a platform's <code>/api/media/chat</code>.
+                        (OmniRoute, OpenAI, Anthropic, Gemini, Ollama, OpenRouter, LiteLLM...), or a platform's <code>/api/media/chat</code>.
                     </p>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
@@ -48,18 +58,32 @@
                         Turning it off needs no chat endpoint, only a retrieval source below.
                     </div>
                 </div>
+                <div class="selectContainer">
+                    <select is="emby-select" id="ChatProvider" label="AI Provider Preset">
+                        <option value="omniroute">OmniRoute (Fleet Multi-LLM Gateway - Primary)</option>
+                        <option value="openai">OpenAI (GPT-4o, o3, etc.)</option>
+                        <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Haiku)</option>
+                        <option value="gemini">Google Gemini (Gemini 2.0 / 1.5 Pro)</option>
+                        <option value="custom">Custom / Self-Hosted (Ollama, vLLM, LiteLLM)</option>
+                    </select>
+                    <div class="fieldDescription">Select an AI provider. Selecting a preset auto-fills standard endpoint URLs.</div>
+                </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="text" id="ChatEndpointUrl" label="Chat endpoint URL" />
                     <div class="fieldDescription">
-                        The complete URL. No path is appended. Examples:
+                        The complete URL. Examples:
+                        <code>http://omniroute:20128/v1/chat/completions</code>,
                         <code>https://api.openai.com/v1/chat/completions</code>,
-                        <code>http://localhost:11434/v1/chat/completions</code> (Ollama),
-                        <code>https://ai.example.com/api/media/chat</code>.
+                        <code>https://api.anthropic.com/v1/messages</code>.
                     </div>
                 </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="password" id="ChatApiKey" label="Chat API key" autocomplete="off" />
-                    <div class="fieldDescription">Bearer token for the endpoint. Leave blank if it needs none (e.g. local Ollama).</div>
+                    <div class="fieldDescription">API key or bearer token. Leave blank if not required (e.g. internal OmniRoute or local Ollama).</div>
+                </div>
+                <div class="buttonContainer" style="margin-bottom:1.5em;">
+                    <button is="emby-button" type="button" class="raised button-accent" id="TestChatConnection">Test AI Model Connection</button>
+                    <span id="ChatTestResult" style="margin-left:1em; font-weight:500;"></span>
                 </div>
                 <div class="selectContainer">
                     <select is="emby-select" id="Model" label="Model"></select>
@@ -219,19 +243,19 @@
 
                 <div class="selectContainer">
                     <select is="emby-select" id="UiLanguage" label="Language of the AI Search interface">
-                        <option value="auto">Auto (each user's Jellyfin display language, then the browser's)</option>
-                        <option value="fr">Français</option>
+                        <option value="auto">Auto (each user's Jellyfin display language, then browser)</option>
+                        <option value="de">Deutsch (German)</option>
                         <option value="en">English</option>
+                        <option value="fr">Français</option>
                     </select>
                     <div class="fieldDescription">Used by the AI search popup, the AI Search row and the reasons given for each result.</div>
                 </div>
 
                 <!-- 4. Jellyfin search -->
                 <div class="verticalSection">
-                    <h3 class="sectionTitle">4. Jellyfin search</h3>
+                    <h3 class="sectionTitle">4. Jellyfin search &amp; Third-Party Clients (Plezy, Mobile, TV)</h3>
                     <p class="fieldDescription">
-                        Adds meaning-based matches to Jellyfin's own search, alongside its normal title matches.
-                        Uses the retrieval source above; no language model is needed for this.
+                        Adds meaning-based matches and zero-hit recommendations to Jellyfin's search and third-party apps like Plezy, Findroid, and Swiftfin.
                     </p>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
@@ -239,6 +263,17 @@
                         <input is="emby-checkbox" type="checkbox" id="SemanticSearchEnabled" />
                         <span>Add meaning-based matches to Jellyfin's search</span>
                     </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="SemanticSearchFallbackOnly" />
+                        <span>Intelligent Dual-Stage Search (Direct title match first, AI search on zero-hit)</span>
+                    </label>
+                    <div class="fieldDescription">
+                        Recommended: Exact/contains movie and series searches return instantly without AI overhead.
+                        If 0 title matches exist, or when typing descriptive natural language sentences (e.g. in Plezy or Web),
+                        the AI engine automatically triggers and delivers smart recommendations.
+                    </div>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label>
@@ -419,6 +454,7 @@
                 ApiClient.getPluginConfiguration(AiSearchPluginId).then(function (cfg) {
                     page.querySelector('#Enabled').checked = cfg.Enabled;
                     page.querySelector('#UseModel').checked = cfg.UseModel !== false;
+                    page.querySelector('#ChatProvider').value = cfg.ChatProvider || 'omniroute';
                     page.querySelector('#ChatEndpointUrl').value = cfg.ChatEndpointUrl || '';
                     page.querySelector('#ChatApiKey').value = cfg.ChatApiKey || '';
                     page.querySelector('#ModelsEndpointUrl').value = cfg.ModelsEndpointUrl || '';
@@ -440,6 +476,7 @@
                     page.querySelector('#IncludeWatched').checked = cfg.IncludeWatched;
                     page.querySelector('#TimeoutSeconds').value = cfg.TimeoutSeconds;
                     page.querySelector('#SemanticSearchEnabled').checked = cfg.SemanticSearchEnabled !== false;
+                    page.querySelector('#SemanticSearchFallbackOnly').checked = cfg.SemanticSearchFallbackOnly !== false;
                     page.querySelector('#SemanticSearchSentencesOnly').checked = cfg.SemanticSearchSentencesOnly === true;
                     page.querySelector('#SemanticSearchMinWords').value = cfg.SemanticSearchMinWords;
                     page.querySelector('#SemanticSearchMaxResults').value = cfg.SemanticSearchMaxResults;
@@ -497,6 +534,7 @@
                 ApiClient.getPluginConfiguration(AiSearchPluginId).then(function (cfg) {
                     cfg.Enabled = page.querySelector('#Enabled').checked;
                     cfg.UseModel = page.querySelector('#UseModel').checked;
+                    cfg.ChatProvider = page.querySelector('#ChatProvider').value || 'omniroute';
                     cfg.ChatEndpointUrl = page.querySelector('#ChatEndpointUrl').value.trim();
                     cfg.ChatApiKey = page.querySelector('#ChatApiKey').value.trim();
                     cfg.Model = page.querySelector('#Model').value;
@@ -525,6 +563,7 @@
                     cfg.IncludeWatched = page.querySelector('#IncludeWatched').checked;
                     cfg.TimeoutSeconds = parseInt(page.querySelector('#TimeoutSeconds').value, 10) || 45;
                     cfg.SemanticSearchEnabled = page.querySelector('#SemanticSearchEnabled').checked;
+                    cfg.SemanticSearchFallbackOnly = page.querySelector('#SemanticSearchFallbackOnly').checked;
                     cfg.SemanticSearchSentencesOnly = page.querySelector('#SemanticSearchSentencesOnly').checked;
                     cfg.SemanticSearchMinWords = parseInt(page.querySelector('#SemanticSearchMinWords').value, 10) || 3;
                     cfg.SemanticSearchMaxResults = parseInt(page.querySelector('#SemanticSearchMaxResults').value, 10) || 20;
@@ -550,6 +589,91 @@
             document.querySelector('#RetrievalMode').addEventListener('change', applyRetrievalMode);
             document.querySelector('#SemanticSearchSentencesOnly').addEventListener('change', applySentencesOnly);
             document.querySelector('#NativeSearchOnly').addEventListener('change', applyNativeSearchOnly);
+
+            var providerDefaults = {
+                omniroute: {
+                    chat: 'http://omniroute:20128/v1/chat/completions',
+                    models: 'http://omniroute:20128/v1/models',
+                    tokenParam: 'auto'
+                },
+                openai: {
+                    chat: 'https://api.openai.com/v1/chat/completions',
+                    models: 'https://api.openai.com/v1/models',
+                    tokenParam: 'auto'
+                },
+                anthropic: {
+                    chat: 'https://api.anthropic.com/v1/messages',
+                    models: '',
+                    tokenParam: 'none'
+                },
+                gemini: {
+                    chat: 'https://generativelanguage.googleapis.com/v1beta/models',
+                    models: '',
+                    tokenParam: 'none'
+                },
+                custom: {
+                    chat: '',
+                    models: '',
+                    tokenParam: 'auto'
+                }
+            };
+
+            document.querySelector('#ChatProvider').addEventListener('change', function () {
+                var p = this.value;
+                var def = providerDefaults[p];
+                if (def) {
+                    var curChat = page.querySelector('#ChatEndpointUrl').value.trim();
+                    if (!curChat || curChat.includes('omniroute') || curChat.includes('openai.com') || curChat.includes('anthropic.com') || curChat.includes('googleapis.com')) {
+                        page.querySelector('#ChatEndpointUrl').value = def.chat;
+                    }
+                    var curModels = page.querySelector('#ModelsEndpointUrl').value.trim();
+                    if (!curModels || curModels.includes('omniroute') || curModels.includes('openai.com')) {
+                        page.querySelector('#ModelsEndpointUrl').value = def.models;
+                    }
+                    if (def.tokenParam) {
+                        page.querySelector('#ChatTokenParameter').value = def.tokenParam;
+                    }
+                }
+            });
+
+            document.querySelector('#TestChatConnection').addEventListener('click', function () {
+                var btn = this;
+                var resSpan = page.querySelector('#ChatTestResult');
+                btn.disabled = true;
+                resSpan.textContent = 'Testing connection...';
+                resSpan.style.color = '#ff9800';
+
+                var provider = page.querySelector('#ChatProvider').value;
+                var url = page.querySelector('#ChatEndpointUrl').value.trim();
+                var key = page.querySelector('#ChatApiKey').value.trim();
+                var model = page.querySelector('#Model').value || '';
+
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('AiSearch/TestChat'),
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        provider: provider,
+                        endpointUrl: url,
+                        apiKey: key,
+                        model: model
+                    }),
+                    dataType: 'json'
+                }).then(function (res) {
+                    btn.disabled = false;
+                    if (res && res.success) {
+                        resSpan.textContent = '\u2713 ' + (res.message || 'Connected successfully!');
+                        resSpan.style.color = '#4caf50';
+                    } else {
+                        resSpan.textContent = '\u2717 ' + (res && res.error ? res.error : 'Connection failed');
+                        resSpan.style.color = '#f44336';
+                    }
+                }).catch(function (err) {
+                    btn.disabled = false;
+                    resSpan.textContent = '\u2717 Connection failed (check endpoint/network)';
+                    resSpan.style.color = '#f44336';
+                });
+            });
             document.querySelector('#ReloadModels').addEventListener('click', function () {
                 loadModels(page.querySelector('#Model').value);
             });

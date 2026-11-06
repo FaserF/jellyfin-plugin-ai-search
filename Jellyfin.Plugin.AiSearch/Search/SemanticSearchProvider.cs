@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.AiSearch.Configuration;
+using MediaBrowser.Controller.Dto;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Configuration;
 using Microsoft.AspNetCore.Http;
@@ -41,6 +44,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
     private readonly SemanticMatcher _matcher;
     private readonly VectorIndex _index;
     private readonly IUserManager _userManager;
+    private readonly ILibraryManager _libraryManager;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly SemanticWarmer _warmer;
     private readonly ILogger<SemanticSearchProvider> _logger;
@@ -51,6 +55,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
     /// <param name="matcher">Finds the visible meaning-based matches.</param>
     /// <param name="index">The in-memory local index, to check readiness without running a query.</param>
     /// <param name="userManager">User manager, for resolving the calling user.</param>
+    /// <param name="libraryManager">Library manager, for querying existing titles.</param>
     /// <param name="httpContextAccessor">Gives access to the current request, to store the per-request trace.</param>
     /// <param name="warmer">Keeps the retrieval backend loaded between searches.</param>
     /// <param name="logger">Logger.</param>
@@ -58,6 +63,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         SemanticMatcher matcher,
         VectorIndex index,
         IUserManager userManager,
+        ILibraryManager libraryManager,
         IHttpContextAccessor httpContextAccessor,
         SemanticWarmer warmer,
         ILogger<SemanticSearchProvider> logger)
@@ -65,6 +71,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         _matcher = matcher;
         _index = index;
         _userManager = userManager;
+        _libraryManager = libraryManager;
         _httpContextAccessor = httpContextAccessor;
         _warmer = warmer;
         _logger = logger;
@@ -181,6 +188,19 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             trace.Mode = string.Equals(config.RetrievalMode, "remote", StringComparison.OrdinalIgnoreCase) ? "remote" : "local";
         }
 
+        // When SemanticSearchFallbackOnly is active and query is not a sentence,
+        // check whether native title matches already exist in the user's library.
+        // If they do, step aside immediately with zero AI latency so native results show up instantly.
+        if (config.SemanticSearchFallbackOnly && !TitleMatcher.LooksLikeSentenceQuery(query.SearchTerm))
+        {
+            var testUser = query.UserId is Guid checkUid && checkUid != Guid.Empty ? _userManager.GetUserById(checkUid) : null;
+            if (HasDirectTitleMatch(query, testUser, AllowedKinds(query)))
+            {
+                RecordSkip(trace, "title_match_exists", enabled: true);
+                return Array.Empty<SearchResult>();
+            }
+        }
+
         // Jellyfin answers a search only once every provider has, so this
         // budget is the most meaning matches may ever add to a search. The
         // backend call itself is not cut short (see CoalescingCache).
@@ -282,6 +302,35 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         }
 
         return kinds;
+    }
+
+    private bool HasDirectTitleMatch(SearchProviderQuery query, User? user, IReadOnlyCollection<BaseItemKind> kinds)
+    {
+        try
+        {
+            var term = query.SearchTerm?.Trim();
+            if (string.IsNullOrEmpty(term))
+            {
+                return false;
+            }
+
+            var kindsArray = kinds.Count > 0 ? kinds.ToArray() : SupportedKinds;
+            var itemQuery = new InternalItemsQuery(user)
+            {
+                SearchTerm = term,
+                IncludeItemTypes = kindsArray,
+                AncestorIds = query.ParentId is Guid pid && pid != Guid.Empty ? new[] { pid } : Array.Empty<Guid>(),
+                Limit = 1,
+                DtoOptions = new DtoOptions(false)
+            };
+            var items = _libraryManager.GetItemList(itemQuery);
+            return items.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error checking direct title match for {Term}", query.SearchTerm);
+            return false;
+        }
     }
 
     private SemanticSearchTrace? GetOrCreateTrace()

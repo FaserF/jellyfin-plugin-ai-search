@@ -39,14 +39,53 @@ public class DirectChatClient
 
     /// <summary>Runs one completion and returns the assistant message content.</summary>
     /// <param name="config">Plugin configuration (timeout, token-limit field).</param>
-    /// <param name="url">The full chat-completions URL (used verbatim).</param>
-    /// <param name="apiKey">Bearer key for the endpoint (blank if none).</param>
+    /// <param name="url">The full chat-completions URL (used verbatim or derived from provider).</param>
+    /// <param name="apiKey">Bearer / API key for the endpoint (blank if none).</param>
     /// <param name="model">The model id to request.</param>
     /// <param name="messages">The chat messages payload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The assistant content string.</returns>
     /// <exception cref="DirectChatException">When the endpoint errors or replies with an unexpected shape.</exception>
     public async Task<string> CompleteAsync(PluginConfiguration config, string url, string apiKey, string model, object[] messages, CancellationToken cancellationToken)
+    {
+        var targetUrl = !string.IsNullOrWhiteSpace(url) ? url.Trim() : config.GetEffectiveChatEndpointUrl();
+        var provider = DetectProvider(config, targetUrl);
+
+        if (provider == "anthropic")
+        {
+            return await CompleteAnthropicAsync(config, targetUrl, apiKey, model, messages, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (provider == "gemini")
+        {
+            return await CompleteGeminiAsync(config, targetUrl, apiKey, model, messages, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await CompleteOpenAiAsync(config, targetUrl, apiKey, model, messages, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string DetectProvider(PluginConfiguration config, string url)
+    {
+        var provider = config.ChatProvider?.Trim().ToLowerInvariant();
+        if (provider is "anthropic" or "gemini")
+        {
+            return provider;
+        }
+
+        if (url.Contains("anthropic.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return "anthropic";
+        }
+
+        if (url.Contains("googleapis.com", StringComparison.OrdinalIgnoreCase) || url.Contains("gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return "gemini";
+        }
+
+        return provider ?? "omniroute";
+    }
+
+    private async Task<string> CompleteOpenAiAsync(PluginConfiguration config, string url, string apiKey, string model, object[] messages, CancellationToken cancellationToken)
     {
         var tokenMode = (config.ChatTokenParameter ?? "auto").Trim().ToLowerInvariant();
         var key = url + "\n" + model + "\n" + tokenMode;
@@ -86,6 +125,178 @@ public class DirectChatClient
         {
             throw new DirectChatException($"Unexpected chat response: {Truncate(body, 300)}");
         }
+    }
+
+    private async Task<string> CompleteAnthropicAsync(
+        PluginConfiguration config,
+        string url,
+        string apiKey,
+        string model,
+        object[] messages,
+        CancellationToken cancellationToken)
+    {
+        var targetUrl = url;
+        if (!targetUrl.Contains("/v1/messages", StringComparison.OrdinalIgnoreCase))
+        {
+            targetUrl = targetUrl.TrimEnd('/') + "/v1/messages";
+        }
+
+        var (system, nonSystem) = ExtractMessages(messages);
+        var payload = new Dictionary<string, object>
+        {
+            ["model"] = model,
+            ["messages"] = nonSystem,
+            ["max_tokens"] = TokenLimit,
+            ["temperature"] = 0.4
+        };
+        if (!string.IsNullOrWhiteSpace(system))
+        {
+            payload["system"] = system;
+        }
+
+        using var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(config.TimeoutSeconds, 5, 120));
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+        }
+
+        client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+        using var response = await client.PostAsJsonAsync(targetUrl, payload, cancellationToken).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new DirectChatException($"Anthropic endpoint returned {(int)response.StatusCode}: {Truncate(body, 300)}");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var contentArr = doc.RootElement.GetProperty("content");
+            foreach (var item in contentArr.EnumerateArray())
+            {
+                if (item.TryGetProperty("type", out var t) && t.GetString() == "text" && item.TryGetProperty("text", out var text))
+                {
+                    return text.GetString() ?? string.Empty;
+                }
+            }
+
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            throw new DirectChatException($"Unexpected Anthropic response: {Truncate(body, 300)} ({ex.Message})");
+        }
+    }
+
+    private async Task<string> CompleteGeminiAsync(
+        PluginConfiguration config,
+        string url,
+        string apiKey,
+        string model,
+        object[] messages,
+        CancellationToken cancellationToken)
+    {
+        var targetUrl = url;
+        if (!targetUrl.Contains(":generateContent", StringComparison.OrdinalIgnoreCase))
+        {
+            targetUrl = targetUrl.TrimEnd('/') + (targetUrl.EndsWith("/models", StringComparison.OrdinalIgnoreCase) ? $"/{model}:generateContent" : $"/v1beta/models/{model}:generateContent");
+        }
+
+        var (system, nonSystem) = ExtractMessages(messages);
+        var contents = new List<object>();
+
+        foreach (var msg in nonSystem)
+        {
+            contents.Add(new
+            {
+                role = msg["role"] == "assistant" ? "model" : "user",
+                parts = new[] { new { text = msg["content"] } }
+            });
+        }
+
+        var payload = new Dictionary<string, object>
+        {
+            ["contents"] = contents,
+            ["generationConfig"] = new
+            {
+                temperature = 0.4,
+                maxOutputTokens = TokenLimit,
+                responseMimeType = "application/json"
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(system))
+        {
+            payload["system_instruction"] = new
+            {
+                parts = new[] { new { text = system } }
+            };
+        }
+
+        using var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(config.TimeoutSeconds, 5, 120));
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            client.DefaultRequestHeaders.Add("x-goog-api-key", apiKey);
+        }
+
+        using var response = await client.PostAsJsonAsync(targetUrl, payload, cancellationToken).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new DirectChatException($"Gemini endpoint returned {(int)response.StatusCode}: {Truncate(body, 300)}");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var candidates = doc.RootElement.GetProperty("candidates");
+            if (candidates.GetArrayLength() > 0)
+            {
+                var first = candidates[0];
+                var parts = first.GetProperty("content").GetProperty("parts");
+                if (parts.GetArrayLength() > 0)
+                {
+                    return parts[0].GetProperty("text").GetString() ?? string.Empty;
+                }
+            }
+
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            throw new DirectChatException($"Unexpected Gemini response: {Truncate(body, 300)} ({ex.Message})");
+        }
+    }
+
+    private static (string system, List<Dictionary<string, string>> nonSystem) ExtractMessages(object[] messages)
+    {
+        var systemParts = new List<string>();
+        var nonSystem = new List<Dictionary<string, string>>();
+
+        foreach (var msg in messages)
+        {
+            var elem = JsonSerializer.SerializeToElement(msg);
+            var role = elem.TryGetProperty("role", out var r) ? r.GetString() ?? "user" : "user";
+            var content = elem.TryGetProperty("content", out var c) ? c.GetString() ?? string.Empty : string.Empty;
+
+            if (string.Equals(role, "system", StringComparison.OrdinalIgnoreCase))
+            {
+                systemParts.Add(content);
+            }
+            else
+            {
+                nonSystem.Add(new Dictionary<string, string>
+                {
+                    ["role"] = role,
+                    ["content"] = content
+                });
+            }
+        }
+
+        return (string.Join("\n\n", systemParts), nonSystem);
     }
 
     // The token budget is the *combined* allowance for a reasoning model's

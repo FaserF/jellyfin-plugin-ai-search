@@ -41,9 +41,12 @@ public static class PromptBuilder
         int synopsisLength,
         string? tasteProfile = null)
     {
-        var language = locale == "fr"
-            ? "Write the \"answer\" and every \"reason\" in French. "
-            : "Write the \"answer\" and every \"reason\" in English. ";
+        var language = locale switch
+        {
+            "de" => "Write the \"answer\" and every \"reason\" in German (Deutsch). ",
+            "fr" => "Write the \"answer\" and every \"reason\" in French. ",
+            _ => "Write the \"answer\" and every \"reason\" in English. "
+        };
         var system =
             "You are a film recommendation engine for a personal Jellyfin movie library. " +
             "Recommend ONLY movies from the provided CANDIDATES list, chosen to match the user's request and taste. " +
@@ -99,7 +102,12 @@ public static class PromptBuilder
     /// <returns>The messages array for the completions payload.</returns>
     public static object[] BuildInterviewMessages(string prompt, string locale)
     {
-        var language = locale == "fr" ? "French" : "English";
+        var language = locale switch
+        {
+            "de" => "German (Deutsch)",
+            "fr" => "French",
+            _ => "English"
+        };
         var system =
             "You help a user refine a movie search of their personal library. " +
             "Given their initial request, produce 2 or 3 short multiple-choice questions whose answers would most " +
@@ -129,7 +137,12 @@ public static class PromptBuilder
     /// <returns>The messages array for the completions payload.</returns>
     public static object[] BuildExplainMessages(string term, string locale, IReadOnlyList<BaseItem> items)
     {
-        var language = locale == "fr" ? "French" : "English";
+        var language = locale switch
+        {
+            "de" => "German (Deutsch)",
+            "fr" => "French",
+            _ => "English"
+        };
         var system =
             "A user searched their personal Jellyfin library and a meaning-based search returned the titles below. " +
             "For EVERY title, in order, write one short reason (at most 90 characters) saying concretely what links it " +
@@ -183,7 +196,12 @@ public static class PromptBuilder
     /// <returns>The messages array for the completions payload.</returns>
     public static object[] BuildTasteProfileMessages(List<string> favorites, List<string> watched, string locale)
     {
-        var language = locale == "fr" ? "French" : "English";
+        var language = locale switch
+        {
+            "de" => "German (Deutsch)",
+            "fr" => "French",
+            _ => "English"
+        };
         var system =
             "You profile a film & TV viewer's taste for a recommendation engine. " +
             "From their favorites and most-watched titles, write 2 to 4 sentences capturing what they seem to enjoy: " +

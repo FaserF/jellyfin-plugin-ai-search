@@ -1,3 +1,7 @@
+// Copyright (C) 2024-2026 Franciskid, FaserF
+// Licensed under GNU General Public License v3.0 (GPL-3.0)
+// Universal AI Semantic Search & Smart Recommendations for Jellyfin, Plezy, and Web.
+
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.AiSearch.Configuration;
@@ -9,9 +13,10 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.AiSearch;
 
 /// <summary>
-/// AI Search &amp; Recommendation plugin. Thin server-side plugin that forwards a
-/// natural-language prompt (plus the user's own library + taste signals) to an
-/// AI backend and renders library recommendations in the web client.
+/// AI Search &amp; Recommendation plugin. Universal semantic search and natural-language
+/// recommendation provider for Jellyfin, Plezy, and Web clients.
+/// Originally created by Franciskid; enhanced with OmniRoute, multi-provider, zero-hit fallback,
+/// and third-party client integration by FaserF.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {

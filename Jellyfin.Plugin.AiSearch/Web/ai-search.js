@@ -8,14 +8,23 @@
 
     // ---------------------------------------------------------------- i18n ---
 
-    // Set from the server's language option: 'fr' or 'en' force a language,
+    // Set from the server's language option: 'de', 'fr' or 'en' force a language,
     // anything else follows Jellyfin's display language (the web client puts
     // it on <html lang>), then the browser's.
     var forcedLanguage = null;
 
+    function isGerman() {
+        if (forcedLanguage === 'de') { return true; }
+        if (forcedLanguage === 'en' || forcedLanguage === 'fr') { return false; }
+        var lang = (document.documentElement.getAttribute('lang')
+            || (navigator && (navigator.language || navigator.userLanguage))
+            || 'en');
+        return /^de/i.test(lang);
+    }
+
     function isFrench() {
         if (forcedLanguage === 'fr') { return true; }
-        if (forcedLanguage === 'en') { return false; }
+        if (forcedLanguage === 'en' || forcedLanguage === 'de') { return false; }
         var lang = (document.documentElement.getAttribute('lang')
             || (navigator && (navigator.language || navigator.userLanguage))
             || 'en');
@@ -23,6 +32,58 @@
     }
 
     var STRINGS = {
+        de: {
+            fabTitle: 'KI-Suche',
+            title: 'KI-Suche',
+            close: 'Schließen',
+            back: 'Zurück',
+            search: 'Suchen',
+            surprise: 'Überrasch mich',
+            collection: 'Sammlung erstellen',
+            helpMe: 'Hilf mir auswählen',
+            placeholder: 'Beschreibe, worauf du Lust hast...',
+            collectionPlaceholder: 'Beschreibe eine Sammlung, z.B. regnerischer Sonntagnachmittag',
+            recent: 'Letzte Suchen',
+            clear: 'Verlauf leeren',
+            emptyTitle: 'Frag in deinen eigenen Worten',
+            emptyBody: 'Beschreibe eine Stimmung, ein Genre oder einen Abend. Oder lass die Buttons entscheiden.',
+            examples: ['spannend und kurz, wie Sicario', 'eine Wohlfühl-Komödie der 90er', 'visuell beeindruckende Sci-Fi mit Plottwist'],
+            movies: function (n) { return n + (n === 1 ? ' Titel' : ' Titel'); },
+            noMatches: 'Nichts in deiner Mediathek passt dazu. Bitte formuliere es anders.',
+            unavailable: 'KI-Suche ist momentan nicht verfügbar.',
+            disabled: 'KI-Suche ist nicht konfiguriert.',
+            timeout: 'Zeitüberschreitung des KI-Dienstes. Bitte versuche es erneut.',
+            more: 'Mehr davon',
+            searchAgain: 'Erneut suchen',
+            savePlaceholder: 'Name der Sammlung',
+            save: 'Speichern',
+            saveResults: 'In Playlist speichern',
+            saving: 'Wird gespeichert...',
+            saved: function (name) { return 'Gespeichert in ' + name; },
+            saveFailed: 'Playlist konnte nicht erstellt werden.',
+            surprising: 'Finde eine Überraschung...',
+            loading: ['Verstehe deine Anfrage...', 'Durchsuche deine Mediathek...', 'Wähle die besten Treffer...'],
+            preparing: 'Überlege passende Fragen...',
+            refine: 'Ein paar Fragen zum Eingrenzen',
+            personalize: 'An meinen Geschmack anpassen',
+            scopeMovies: 'Filme',
+            scopeTv: 'Serien',
+            deleteEntry: 'Löschen',
+            q1: 'Was für ein Abend soll es werden?',
+            q1opts: [['easy', 'Entspannt'], ['intense', 'Spannend'], ['beautiful', 'Bildgewaltig'], ['funny', 'Lustig'], ['dark', 'Düster']],
+            q2: 'Wie viel Zeit hast du?',
+            q2opts: [['short', 'Unter 90 Min.'], ['normal', 'Rund 2 Stunden'], ['any', 'Egal']],
+            q3: 'Schon gesehen?',
+            q3opts: [['unseen', 'Etwas Neues'], ['rewatch', 'Lieblingsfilm wiederholen']],
+            go: 'Finden',
+            rowTitle: 'KI-Empfehlungen',
+            rowSub: function (q) { return 'Passend zu \u201e' + q + '\u201c nach Bedeutung (semantisch)'; },
+            rowLoading: 'Durchsuche Mediathek & erstelle KI-Empfehlungen...',
+            noTitleMatchesBanner: function (q) { return 'Keine direkten Treffer für \u201e' + q + '\u201c \u2014 hier sind passende KI-Empfehlungen aus deiner Mediathek:'; },
+            typeMovie: 'Film',
+            typeSeries: 'Serie',
+            typeEpisode: 'Episode'
+        },
         en: {
             fabTitle: 'AI search',
             title: 'AI search',
@@ -69,7 +130,8 @@
             go: 'Find it',
             rowTitle: 'AI Search',
             rowSub: function (q) { return 'related to \u201c' + q + '\u201d by meaning, not by title'; },
-            rowLoading: 'Looking for titles related by meaning',
+            rowLoading: 'Looking for titles related by meaning...',
+            noTitleMatchesBanner: function (q) { return 'No direct title matches for \u201c' + q + '\u201d \u2014 here are AI recommendations from your library:'; },
             typeMovie: 'Movie',
             typeSeries: 'Series',
             typeEpisode: 'Episode'
@@ -120,41 +182,60 @@
             go: 'Trouver',
             rowTitle: 'Recherche IA',
             rowSub: function (q) { return 'liés à \u00ab\u00a0' + q + '\u00a0\u00bb par le sens, pas par le titre'; },
-            rowLoading: 'Recherche de titres liés par le sens',
+            rowLoading: 'Recherche de titres liés par le sens...',
+            noTitleMatchesBanner: function (q) { return 'Aucun r\u00e9sultat direct pour \u00ab ' + q + ' \u00bb \u2014 voici des recommandations IA de votre m\u00e9diath\u00e8que :'; },
             typeMovie: 'Film',
             typeSeries: 'Série',
             typeEpisode: 'Épisode'
         }
     };
 
-    function t() { return isFrench() ? STRINGS.fr : STRINGS.en; }
+    function t() {
+        if (isGerman()) { return STRINGS.de; }
+        if (isFrench()) { return STRINGS.fr; }
+        return STRINGS.en;
+    }
 
     function interviewPrompt(a) {
+        var de = isGerman();
         var fr = isFrench();
         var mood = {
-            easy: fr ? 'léger et détendu' : 'easy-going and relaxing',
-            intense: fr ? 'intense et prenant' : 'intense and gripping',
-            beautiful: fr ? 'visuellement magnifique' : 'visually beautiful',
-            funny: fr ? 'drôle' : 'funny',
-            dark: fr ? 'sombre' : 'dark'
+            easy: de ? 'leicht und entspannt' : (fr ? 'l\u00e9ger et d\u00e9tendu' : 'easy-going and relaxing'),
+            intense: de ? 'intensiv und packend' : (fr ? 'intense et prenant' : 'intense and gripping'),
+            beautiful: de ? 'visuell bildgewaltig' : (fr ? 'visuellement magnifique' : 'visually beautiful'),
+            funny: de ? 'lustig' : (fr ? 'dr\u00f4le' : 'funny'),
+            dark: de ? 'd\u00fcster' : (fr ? 'sombre' : 'dark')
         }[a.mood];
-        var time = { short: fr ? 'moins de 90 minutes' : 'under 90 minutes', normal: fr ? 'environ deux heures' : 'about two hours', any: '' }[a.time];
+        var time = {
+            short: de ? 'unter 90 Minuten' : (fr ? 'moins de 90 minutes' : 'under 90 minutes'),
+            normal: de ? 'rund zwei Stunden' : (fr ? 'environ deux heures' : 'about two hours'),
+            any: ''
+        }[a.time];
         var parts = [];
         if (mood) { parts.push(mood); }
         if (time) { parts.push(time); }
         var joined = parts.join(', ');
-        return (fr ? 'Un film ' : 'A movie that is ') + (joined || (fr ? 'que je vais aimer' : "I'll enjoy")) + '.';
+        var intro = de ? 'Ein Film, der ' : (fr ? 'Un film ' : 'A movie that is ');
+        var fallback = de ? 'mir gef\u00e4llt' : (fr ? 'que je vais aimer' : "I'll enjoy");
+        return intro + (joined || fallback) + '.';
     }
 
     function relTime(iso) {
+        var de = isGerman();
         var fr = isFrench();
         var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-        if (s < 60) { return fr ? "à l'instant" : 'just now'; }
+        if (s < 60) { return de ? 'gerade eben' : (fr ? "à l'instant" : 'just now'); }
         var m = Math.floor(s / 60);
         if (m < 60) { return m + ' min'; }
         var h = Math.floor(m / 60);
         if (h < 24) { return h + ' h'; }
-        return Math.floor(h / 24) + (fr ? ' j' : 'd');
+        return Math.floor(h / 24) + (de ? ' T' : (fr ? ' j' : 'd'));
+    }
+
+    function locale() {
+        if (isGerman()) { return 'de'; }
+        if (isFrench()) { return 'fr'; }
+        return 'en';
     }
 
     // ------------------------------------------------------------- helpers ---
@@ -421,6 +502,13 @@
     // The AI Search row under Jellyfin's own search results.
     // Own class name: the popup's history list already uses .ais-row.
     '.ais-airow{display:block;width:100%;clear:both;margin:4px 0 18px}' +
+    '.ais-nobanner{display:flex;align-items:center;gap:10px;margin:12px 3.3% 6px;padding:12px 16px;background:rgba(0,164,220,.12);border:1px solid rgba(0,164,220,.32);border-radius:6px;color:#eaf6fc;font-size:13.5px;font-weight:500}' +
+    '.ais-nobanner .ais-ic{width:18px;height:18px;color:' + ACCENT + ';flex:none}' +
+    '.ais-progress-wrap{margin:6px 3.3% 10px;display:flex;flex-direction:column;gap:6px}' +
+    '.ais-progress-bar{height:3px;background:rgba(255,255,255,.08);overflow:hidden;position:relative;border-radius:2px}' +
+    '.ais-progress-fill{position:absolute;top:0;left:0;bottom:0;width:40%;background:' + ACCENT + ';animation:ais-indeterminate 1.4s infinite ease-in-out;border-radius:2px}' +
+    '.ais-progress-label{font-size:12px;color:#8f969f}' +
+    '@keyframes ais-indeterminate{0%{left:-40%;width:40%}50%{left:30%;width:60%}100%{left:100%;width:40%}}' +
     '.ais-airow .sectionTitle{margin-top:.6em}' +
     '.ais-rowtitle{display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
     '.ais-rowtitle .ais-ic{width:18px;height:18px;color:' + ACCENT + '}' +
@@ -1253,11 +1341,22 @@
 
             var s = t();
             var ready = entry && entry.status === 'done';
-            var structure = term + '|' + (ready ? entry.items.map(function (it) { return it.id; }).join(',') : 'loading');
+            var hasItems = ready && entry.items && entry.items.length > 0;
+            var isNoTitleHits = !!page.querySelector('.noItemsMessage');
+
+            var bannerHtml = (isNoTitleHits && hasItems)
+                ? '<div class="ais-nobanner">' + IC.sparkle + '<span>' + esc(s.noTitleMatchesBanner(term)) + '</span></div>'
+                : '';
+
+            var progressHtml = (!ready)
+                ? '<div class="ais-progress-wrap"><div class="ais-progress-bar"><div class="ais-progress-fill"></div></div><div class="ais-progress-label">' + esc(s.rowLoading) + '</div></div>'
+                : '';
+
+            var structure = term + '|' + (ready ? entry.items.map(function (it) { return it.id; }).join(',') : 'loading') + '|' + isNoTitleHits;
             if (row.getAttribute('data-structure') !== structure) {
                 var heading = '<h2 class="sectionTitle sectionTitle-cards padded-left padded-right ais-rowtitle">' + IC.sparkle +
                     '<span>' + esc(s.rowTitle) + '</span><span class="ais-rowsub">' + esc(s.rowSub(term)) + '</span></h2>';
-                row.innerHTML = heading + '<div class="ais-rscroll"' + (ready ? '' : ' aria-busy="true" aria-label="' + esc(s.rowLoading) + '"') + '>' +
+                row.innerHTML = bannerHtml + heading + progressHtml + '<div class="ais-rscroll"' + (ready ? '' : ' aria-busy="true" aria-label="' + esc(s.rowLoading) + '"') + '>' +
                     (ready ? entry.items.map(cardHtml).join('') : skeletonHtml()) + '</div>';
                 row.setAttribute('data-structure', structure);
             }

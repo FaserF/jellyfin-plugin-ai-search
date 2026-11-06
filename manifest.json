@@ -2,12 +2,20 @@
     {
         "guid": "d0a3f1e6-9c2b-4a7d-8e5f-1b2c3d4e5f6a",
         "name": "AI Search",
-        "description": "Adds an AI search bar to the Jellyfin web client. Ask in natural language and get titles from your own library, personalized to your watch history. Also adds meaning-based matches inside Jellyfin's own native search, alongside title matches. Works with any OpenAI-compatible model, with a local or remote retrieval source.",
-        "overview": "AI natural-language search & recommendations from your own library.",
-        "owner": "Franciskid",
+        "description": "Universal AI Semantic Search & Smart Recommendations for Jellyfin, Plezy, and Web. Ask in natural language, get intelligent zero-hit recommendations, and connect to OmniRoute, OpenAI, Anthropic, or Gemini. Originally created by Franciskid, maintained & enhanced by FaserF.",
+        "overview": "Universal AI natural-language search & smart recommendations from your own library.",
+        "owner": "FaserF",
         "category": "General",
         "imageUrl": "",
         "versions": [
+            {
+                "version": "1.4.0.0",
+                "changelog": "Major universal AI search & third-party client release:\n\n- Intelligent Dual-Stage Search: Instant direct title search with zero AI overhead; automatic fallback to semantic AI recommendations when zero title matches exist.\n- Third-party app integration: Full compatibility with third-party Jellyfin clients (Plezy, Findroid, Swiftfin) via Jellyfin's search pipeline.\n- Multi-Provider Backend: Native first-class support for OmniRoute fleet multi-LLM gateway, OpenAI, Anthropic (/v1/messages), and Google Gemini (/v1beta/models/...:generateContent).\n- Native German (DE) and English (EN) first-class localization in Web UI, prompts, and recommendations.\n- Visual zero-hit notice and animated multi-stage progress indicator in Web search.\n- Built-in connection test button for AI providers in Dashboard settings.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/FaserF/jellyfin-plugin-ai-search/releases/download/v1.4.0.0/ai-search.zip",
+                "checksum": "00000000000000000000000000000000",
+                "timestamp": "2026-11-06T00:00:00Z"
+            },
             {
                 "version": "1.3.0.1",
                 "changelog": "For Jellyfin 12. Fixes for the three open issues.\n\n- Newer OpenAI models work now. They refuse `max_tokens` and only accept the default temperature, so the plugin switches to `max_completion_tokens` and drops the temperature on its own, then remembers it for that model. You can also pick the field in the settings (\"Reply length limit field\"). Fixes #4.\n- You can exclude libraries from AI Search. Ticked libraries are left out of the index, the AI search popup and the AI matches in Jellyfin's search, but still show up in Jellyfin's normal title search. Fixes #3.\n- Building the index with a model that gives no embeddings (a reranker, or llama.cpp with `--pooling rank`) now stops with a clear message saying so, instead of a JSON error. If only a few titles fail, the build skips them and tells you how many. Fixes #2.",

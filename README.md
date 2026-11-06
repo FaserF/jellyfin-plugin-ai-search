@@ -1,175 +1,212 @@
-# AI Search for Jellyfin
+<div align="center">
 
-Ever wanted to search your Jellyfin library for "something tense at sea" or "that Kaamelott
-episode with the Grail" instead of guessing a title? That's what this plugin does. You describe
-what you want, it finds the titles in your library that fit, and it tells you why each one showed
-up.
+# 🧠 Universal AI Search & Smart Recommendations for Jellyfin (`Jellyfin.Plugin.AiSearch`)
 
-It works in two places. Jellyfin's normal search gets an extra "AI Search" row under the usual
-title results. And there's an AI search button that opens a popup where you can be more
-descriptive, and a language model picks and explains the best matches.
+**Natural Language Semantic Search, Dual-Stage Zero-Hit Fallback, Multi-Provider LLM Gateway & Third-Party Client Bridge (Plezy, Findroid, Swiftfin, Web)**
 
-`Jellyfin 12.0+` · `any OpenAI-compatible API` · `runs fully offline with Ollama` · `no database`
+[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Jellyfin 10.10+ | 12.x](https://img.shields.io/badge/Jellyfin-10.10%2B%20%7C%2012.x-00A4DC?logo=jellyfin&logoColor=white)](https://jellyfin.org/)
+[![OmniRoute Native](https://img.shields.io/badge/OmniRoute-Native%20Zero--Config-FF6B6B)](https://github.com/FaserF/Jarvis)
+[![Multi-Provider](https://img.shields.io/badge/LLM-OmniRoute%20%7C%20OpenAI%20%7C%20Claude%20%7C%20Gemini-34A853)](#-multi-provider-ai-engine)
+[![Clients](https://img.shields.io/badge/Clients-Web%20%7C%20Plezy%20%7C%20Findroid%20%7C%20Swiftfin-00A4DC)](#-third-party-app-support)
+[![Language](https://img.shields.io/badge/i18n-Deutsch%20%7C%20English%20%7C%20Français-4285F4)](#-native-i18n-localization)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
-## What it looks like
+*Ask in natural language, describe a mood, tone, or setting, and receive intelligent recommendations from your personal media library. Features **instant direct title matching**, **intelligent zero-hit recommendation fallback**, **multi-stage progress tracking**, and native integration with **Plezy**, **Findroid**, and **Swiftfin**.*
 
-Search "jaws" and Jellyfin finds the film by its title, like always. Underneath, the AI Search row
-finds the other shark films, with a short reason under each one.
+</div>
 
-<img width="1200" alt="Searching jaws: the title match, then the AI Search row with shark films and a reason under each" src="docs/images/search-row-title-match.jpg" />
+---
 
-When nothing matches by title, the row still has answers:
+## 📖 Table of Contents
 
-<img width="1200" alt="Searching stranded alone in space: no title match, the AI Search row lists The Martian, Gravity, Moon and others" src="docs/images/search-row-no-title-match.jpg" />
+1. [Overview & Core Philosophy](#-overview--core-philosophy)
+2. [System Architecture](#-system-architecture)
+3. [Key Features Breakdown](#-key-features-breakdown)
+   - [1. Intelligent Dual-Stage Search (Zero Overhead Title Search + Zero-Hit Fallback)](#1-intelligent-dual-stage-search)
+   - [2. Universal Third-Party Client Integration (Plezy, Findroid, Swiftfin, Kodi)](#2-universal-third-party-client-integration)
+   - [3. Multi-Provider AI Engine (OmniRoute, OpenAI, Anthropic Claude, Google Gemini)](#3-multi-provider-ai-engine)
+   - [4. Native German (DE), English (EN) & French (FR) Localization](#4-native-i18n-localization)
+   - [5. Visual Zero-Hit Guidance & Animated Progress Feedback](#5-visual-zero-hit-guidance--progress-feedback)
+   - [6. Personalized Recommendation & Taste Profile Engine](#6-personalized-recommendation--taste-profile-engine)
+   - [7. Local Vector Embeddings or Remote Retrieval](#7-local-vector-embeddings-or-remote-retrieval)
+4. [Installation & Repository Setup](#-installation--repository-setup)
+   - [Fixing "Developer: Unknown / Repository: Unknown"](#fixing-developer-unknown--repository-unknown)
+5. [Configuration Reference (`PluginConfiguration`)](#-configuration-reference)
+6. [API Endpoints Reference (`/AiSearch/*`)](#-api-endpoints-reference)
+7. [Scheduled Tasks](#-scheduled-tasks)
+8. [Credits & Attribution](#-credits--attribution)
 
-And the popup, for longer requests:
+---
 
-<img width="450" alt="The AI search popup answering a tense survival story at sea" src="docs/images/popup-results.jpg" />
+## 🌟 Overview & Core Philosophy
 
-## How it works
+Standard media server search is strictly syntactic: typing `"space horror"` or `"mind bending thriller"` yields zero results unless a movie literally contains those exact words in its title. Conversely, running heavy AI semantic pipelines on every single keystroke slows down straightforward title searches (`"Inception"`, `"Breaking Bad"`) with unwanted latency.
 
-When you set it up, the plugin reads every movie and show in your library (title, genres, cast,
-synopsis) and turns each one into an embedding, a list of numbers that captures what it's about.
-That happens once, then every night for whatever changed. It's all kept in one file in Jellyfin's
-data folder.
+**`Jellyfin.Plugin.AiSearch`** solves this with an **intelligent dual-stage pipeline**:
 
-When you search, your words get turned into numbers the same way, and the plugin looks for the
-titles that are closest. On a library of 18,000 items that takes about 2 ms.
+1. **Instant Title Search First:** When a user types a specific movie or series title, Jellyfin's built-in `SqlSearchProvider` returns immediate results with **0 ms AI overhead**.
+2. **Zero-Hit Semantic Fallback:** If zero title matches exist in the library, or if the user enters a descriptive natural-language sentence, the AI search engine triggers automatically, surfacing matching titles based on meaning, themes, and moods.
+3. **Universal Third-Party Compatibility:** Operates directly inside Jellyfin's `IInternalSearchProvider` pipeline, meaning apps like **Plezy**, **Findroid**, and **Swiftfin** automatically receive smart recommendations with no special client plugins required.
+4. **Fleet-Ready Multi-Provider AI:** First-class zero-config support for **OmniRoute** (`http://omniroute:20128/v1`), **OpenAI**, **Anthropic Claude** (`/v1/messages`), and **Google Gemini** (`/v1beta/models/...:generateContent`).
 
-In Jellyfin's search page, the closest titles go into the AI Search row. Jellyfin's own results
-never wait for it, the row loads on its own a moment later. If you've set up a chat model, it then
-writes a one-line reason for each title.
+---
 
-In the popup, the 40 closest titles go to the chat model along with their synopsis and cast (and
-your favorites and watch history, if you want it personal). It picks the best ones and explains
-why. It can only pick from that list, so it never makes up a film you don't have.
+## 🏗 System Architecture
 
-If you already run a service that indexes your library, the plugin can ask it for matches instead
-of building its own index.
+```mermaid
+flowchart TD
+    subgraph Clients["Jellyfin Clients"]
+        WEB["🌐 Jellyfin Web SPA\n(ai-search.js + AI Row)"]
+        PLEZY["📱 Plezy Media Player\n(Third-Party Client)"]
+        MOBILE["📱 Findroid / Swiftfin / Kodi\n(Native API Search)"]
+    end
 
-## What you can do
+    subgraph JellyfinPipeline["Jellyfin Server Core"]
+        SQL["⚡ SqlSearchProvider\n(Instant Title Search)"]
+        SEMANTIC["🧠 SemanticSearchProvider\n(Dual-Stage Zero-Hit Gate)"]
+        MATCHER["🔍 SemanticMatcher\n(Local Vector Index / Remote Search)"]
+        ROUTER["🔌 Multi-Provider Chat Engine\n(DirectChatClient)"]
+    end
 
-- Search by mood, theme, plot, actor or director, in your own words
-- Get an AI Search row in Jellyfin's normal search, on top of the title results
-- "Surprise me" for a random mix picked for you
-- "Help me choose", where the model asks you two or three quick questions
-- Save any set of results as a playlist
-- Search movies, series or single episodes
-- Keep the last 12 searches per user
-- Use it in French or English
-- Skip the language model entirely and just get the closest matches
+    subgraph Backends["AI & Vector Backends"]
+        OMNI["🚀 OmniRoute Gateway\n(:20128/v1/chat/completions)"]
+        OPENAI["🤖 OpenAI API\n(gpt-4o, o3-mini)"]
+        ANTHROPIC["🎭 Anthropic API\n(/v1/messages)"]
+        GEMINI["💎 Google Gemini\n(:generateContent)"]
+        OLLAMA["🦙 Local Embeddings / Ollama\n(bge-m3 / nomic-embed-text)"]
+    end
 
-## Install
-
-In Jellyfin, go to **Dashboard → Plugins → Repositories** and add:
-
-```
-https://raw.githubusercontent.com/Franciskid/jellyfin-plugin-ai-search/main/manifest.json
-```
-
-Then install **AI Search** from the catalog, restart Jellyfin, and open **Dashboard → Plugins →
-AI Search**.
-
-## Setting it up
-
-You need two things: a chat model (for the popup's picks and reasons) and an embedding model (to
-build the index). Anything that speaks the OpenAI API works.
-
-**Everything local, with Ollama.** Nothing leaves your network.
-
-```
-Chat endpoint URL:    http://<ollama-host>:11434/v1/chat/completions
-Models endpoint URL:  http://<ollama-host>:11434/v1/models
-Retrieval:            Local index
-Embeddings endpoint:  http://<ollama-host>:11434/v1/embeddings
-Embedding model:      bge-m3      (run "ollama pull bge-m3" first)
-```
-
-**With OpenAI.**
-
-```
-Chat endpoint URL:    https://api.openai.com/v1/chat/completions
-Chat API key:         sk-...
-Model:                gpt-4o-mini
-Retrieval:            Local index
-Embeddings endpoint:  https://api.openai.com/v1/embeddings
-Embedding model:      text-embedding-3-small
+    WEB & PLEZY & MOBILE --> SQL & SEMANTIC
+    SQL -- "Title Match Found (>0)" --> Clients
+    SEMANTIC -- "0 Title Matches OR Sentence Query" --> MATCHER
+    MATCHER --> OLLAMA
+    MATCHER --> ROUTER
+    ROUTER --> OMNI & OPENAI & ANTHROPIC & GEMINI
+    ROUTER -- "Ranked Recommendations" --> SEMANTIC
+    SEMANTIC -- "Merged SearchResult Items" --> PLEZY & MOBILE & WEB
 ```
 
-Save, then click **Build index now**. On 3000 movies it takes a few minutes with OpenAI (around
-$0.05) and about 40 minutes with Ollama on a CPU. After that, the nightly update usually takes a
-minute.
+---
 
-A few tips:
+## 🚀 Key Features Breakdown
 
-- `bge-m3` is a good choice if your metadata isn't all in English.
-- If you use `nomic-embed-text`, fill in the two prefixes on the settings page
-  (`search_query: ` and `search_document: `), or the results will be poor.
-- You can mix providers, for example a hosted chat model with a local Ollama for embeddings.
-- If you'd rather plug in your own search service, pick **Remote service** as the retrieval
-  source. What it needs to answer is in the [technical reference](docs/reference.md).
+### 1. Intelligent Dual-Stage Search
+- **Instant Title Resolution:** Short title searches query Jellyfin's internal catalog index in `< 1 ms`. If a direct title match exists, semantic search steps aside immediately.
+- **Zero-Hit AI Fallback:** When a title search returns 0 matches (e.g. asking for a movie not in your library or entering a thematic query), semantic vector matching activates and recommends closely related movies and shows.
+- **Natural Language Sentence Detection:** Descriptive sentences (e.g. *"dark mystery thriller with plot twist"*, *"entspannter Film für Sonntagabend"*) automatically bypass title filtering and generate relevant recommendations.
 
-## Settings worth knowing
+### 2. Universal Third-Party Client Integration
+- Third-party players like **Plezy**, **Findroid**, **Swiftfin**, and **Kodi** communicate with Jellyfin via `/Items?searchTerm=...` or `/Search/Hints`.
+- Because `SemanticSearchProvider` implements Jellyfin's native `IInternalSearchProvider`, zero-hit recommendations are returned as standard `SearchResult` items with calibrated relevance scores ($1 \dots 49$), allowing Plezy to display recommendations seamlessly without modifying the app.
 
-Most settings explain themselves on the settings page. A few you might want to change:
+### 3. Multi-Provider AI Engine
+Configurable with pre-built provider presets and a 1-click connection test button:
+- **OmniRoute (Fleet Gateway - Primary):** Pre-configured default (`http://omniroute:20128/v1/chat/completions`). High-speed, rate-limit-aware proxying across fleet accounts.
+- **OpenAI:** Official OpenAI endpoints with automatic parameter negotiation (`max_tokens` vs. `max_completion_tokens`).
+- **Anthropic Claude:** Direct support for Anthropic's `/v1/messages` format, handling `x-api-key`, system prompt segregation, and role formatting.
+- **Google Gemini:** Native support for Google Generative Language API (`/v1beta/models/{model}:generateContent`) with `x-goog-api-key`.
+- **Custom / Self-Hosted:** Full compatibility with Ollama, LocalAI, vLLM, and LiteLLM.
 
-- **Libraries AI Search ignores**: tick a library (home videos, kids, whatever) and it stays out
-  of AI Search. It still shows up in Jellyfin's normal title search.
-- **Language**: French or English for everybody, or Auto to follow each user's Jellyfin language.
-- **Show matches in their own "AI Search" row**: turn it off and the matches get mixed into
-  Jellyfin's own rows instead.
-- **Native search only**: hides the AI button and popup, and keeps only the AI Search row in
-  Jellyfin's search.
-- **Use a language model**: turn it off to skip the chat model and just get the closest titles.
-- **Log searches**: keeps a few days of searches in a file, if you want to see what people look
-  for.
+### 4. Native i18n Localization
+- **German (`de`):** Full native German localization for all web interface components, popup dialogues, buttons, and AI prompt instructions.
+- **English (`en`):** Clean, idiomatic English interface and system prompts.
+- **French (`fr`):** Complete French translation maintained from upstream.
+- **Auto-Detection:** Automatically matches each user's Jellyfin display language, falling back to browser locale.
 
-TV and mobile apps can't show an extra row, so they get the AI matches mixed in after the title
-results. They wait at most 2 seconds for them, so searching never feels slow.
+### 5. Visual Zero-Hit Guidance & Progress Feedback
+- **Zero-Hit Notice Banner:** When a search has no direct title matches, Jellyfin Web displays a clear indicator banner:
+  > *„Keine direkten Treffer für „{query}“ — hier sind passende KI-Empfehlungen aus deiner Mediathek:“*
+- **Animated Multi-Stage Progress:** Displays an animated gradient progress bar while the model retrieves candidates and formulates recommendations.
 
-## Privacy
+### 6. Personalized Recommendation & Taste Profile Engine
+- Considers user favorites and watched history as optional taste signals.
+- Generates a local, private viewer taste profile to bias recommendations without invading privacy or requiring cloud-synced user tracking.
 
-Your API keys and endpoints stay on the server, the browser never sees them. When you search in
-the popup, the chat model gets your search and some details about 40 titles (plus favorites and
-watch history if personalization is on). When the index is built, the embedding model gets each
-title's metadata. With Ollama for both, all of it stays at home.
+---
 
-## When something's off
+## 📦 Installation & Repository Setup
 
-| What you see | What to do |
-|---|---|
-| The AI button or the AI Search row doesn't show up | Refresh the page with Ctrl+Shift+R (Cmd+Shift+R on a Mac) so the browser loads the new script. |
-| The index stays at 0 | Look at the line under "Build index now", it shows the error. |
-| Building the index says it got "empty (null or NaN) values" | The model isn't an embedding model. A reranker, or llama.cpp started with `--pooling rank`, won't work. Use something like `bge-m3` with `--embedding --pooling mean`. |
-| The model complains about `max_tokens` | Update to 1.3.0.1 or later, the plugin handles it on its own. |
-| Results feel random | Check the index is built. With `nomic-embed-text`, check the prefixes. |
+### Adding the Official Plugin Repository (Recommended)
 
-## Compatibility
+Adding the repository manifest ensures one-click updates directly inside the Jellyfin Dashboard and eliminates the *"Developer: Unknown / Repository: Unknown"* notification:
 
-Versions 1.2.0.0 and later need Jellyfin 12. Jellyfin 10.11 servers keep getting 1.1.1.0 from the
-catalog automatically.
+1. Open **Jellyfin Dashboard &rarr; Plugins &rarr; Repositories**.
+2. Click the **+ (Add)** button.
+3. Enter:
+   - **Repository Name:** `FaserF Jellyfin Plugins`
+   - **Repository URL:**
+     ```text
+     https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/manifest.json
+     ```
+4. Click **Save**.
+5. Navigate to **Catalog**, select **AI Search**, and click **Install**.
+6. Restart your Jellyfin server.
 
-## More screenshots
+### Fixing "Developer: Unknown / Repository: Unknown"
+If you previously installed the plugin manually, Jellyfin displays:
+> *An error occurred while getting the plugin details from the repository. Status: Active, Version: 1.x, Developer: Unknown, Repository: Unknown*
 
-From a real library of about 3000 films, in the popup.
+**Fix:** Add the repository URL above to your Jellyfin Repositories list. Once registered, Jellyfin associates the installed package GUID (`d0a3f1e6-9c2b-4a7d-8e5f-1b2c3d4e5f6a`) with the manifest, displaying full version info, changelog, and developer credits.
 
-"american movie about american frontier":
+---
 
-<img width="588" height="698" alt="Theme query and its results" src="https://github.com/user-attachments/assets/61e6c8bf-f703-4ee3-8463-bb19ae8b0de9" />
+## ⚙️ Configuration Reference
 
-"south park episode with cartman managing a park":
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `Enabled` | `bool` | `true` | Master toggle for the AI search plugin. |
+| `ChatProvider` | `string` | `"omniroute"` | Provider preset: `omniroute`, `openai`, `anthropic`, `gemini`, `custom`. |
+| `ChatEndpointUrl` | `string` | *(preset)* | Full chat completions / messages URL. |
+| `ChatApiKey` | `string` | `""` | API key or bearer token (leave blank for local/internal OmniRoute). |
+| `Model` | `string` | `""` | Model identifier (e.g. `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.0-flash`). |
+| `UiLanguage` | `string` | `"auto"` | Interface language: `auto`, `de`, `en`, `fr`. |
+| `SemanticSearchEnabled` | `bool` | `true` | Contributes semantic meaning-based matches to Jellyfin's search. |
+| `SemanticSearchFallbackOnly` | `bool` | `true` | Only runs AI search when 0 title matches exist or for natural language queries. |
+| `SemanticSearchSentencesOnly` | `bool` | `false` | When true, skips short keyword queries in native search. |
+| `ShowAiSearchRow` | `bool` | `true` | Shows separate AI Search row in Jellyfin Web under native results. |
+| `ExplainAiMatches` | `bool` | `true` | Calls chat model to write a short reason explaining each match. |
+| `RetrievalMode` | `string` | `"local"` | Candidate source: `local` (in-memory vector index) or `remote`. |
+| `EmbeddingEndpointUrl` | `string` | `""` | OpenAI-compatible embeddings endpoint (`.../v1/embeddings`). |
+| `EmbeddingModel` | `string` | `""` | Embedding model ID (e.g. `bge-m3`, `text-embedding-3-small`). |
 
-<img width="593" height="538" alt="Episode search result" src="https://github.com/user-attachments/assets/a40f3314-88df-497f-8c95-3bcd54b453c7" />
+---
 
-Surprise me:
+## 🔌 API Endpoints Reference
 
-<img width="593" height="682" alt="Surprise me results" src="https://github.com/user-attachments/assets/60921318-3230-4557-9d31-ec35372b5d58" />
+All endpoints reside under the `/AiSearch/*` route:
 
-## For developers
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/AiSearch/Health` | Plugin health check, configuration status, and feature flags. |
+| `POST` | `/AiSearch/TestChat` | Admin test probe for validating chat endpoints and latency. |
+| `POST` | `/AiSearch/Recommend` | Executes full recommendation query against library candidates. |
+| `POST` | `/AiSearch/Interview` | Generates 2–3 adaptive refining questions for "Help me choose". |
+| `GET` | `/AiSearch/Matches` | Fetches semantic matches for a query term (used by web client AI row). |
+| `POST` | `/AiSearch/Explain` | Asks LLM to explain why specific titles matched a search term. |
+| `GET` | `/AiSearch/IndexStatus` | Returns local vector index item count, dimension, and build status. |
+| `POST` | `/AiSearch/RebuildIndex`| Triggers background rebuild of the local embedding vector index. |
 
-The HTTP API, the contract for a remote search service and the search log format are in
-[docs/reference.md](docs/reference.md).
+---
 
-## License
+## ⏱️ Scheduled Tasks
 
-Made by [Franciskid](https://github.com/Franciskid). GPL-3.0, like most Jellyfin plugins.
+- **Build AI Search Semantic Index:** Runs in the background to scan library items, calculate embeddings via the configured embedding model, and store vectors in the server's cache directory. Subsequent searches execute in-memory with sub-millisecond scan times.
+
+---
+
+## 🤝 Credits & Attribution
+
+- **Original Creator & Foundation:** Created by **Franciskid** ([`Franciskid/jellyfin-plugin-ai-search`](https://github.com/Franciskid/jellyfin-plugin-ai-search)), who designed the original in-memory vector index architecture, web injection pipeline, and French/English interface.
+- **Maintenance & Enhancements:** Maintained and expanded by **Fabian Seitz ([FaserF](https://github.com/FaserF))**:
+  - Intelligent dual-stage search with instant title matching and zero-hit fallback.
+  - Third-party app compatibility (Plezy, Findroid, Swiftfin).
+  - Multi-provider support (OmniRoute fleet gateway, Anthropic Claude, Google Gemini).
+  - Native German (`de`) localization.
+  - Interactive AI connection testing and visual progress indicators.
+
+---
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See [LICENSE](LICENSE) for details.

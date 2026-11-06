@@ -29,7 +29,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets the language of the plugin's web interface (popup, AI
     /// Search row) and of its explanations: <c>"auto"</c> follows each user's
-    /// Jellyfin display language, then the browser's; <c>"fr"</c> or
+    /// Jellyfin display language, then the browser's; <c>"de"</c>, <c>"fr"</c> or
     /// <c>"en"</c> force one for everybody.
     /// </summary>
     public string UiLanguage { get; set; } = "auto";
@@ -38,30 +38,67 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Resolves the language for one request: the forced <see cref="UiLanguage"/>
     /// when set, otherwise what the client asked for.
     /// </summary>
-    /// <param name="requested">The client's locale ("fr", "en", or anything).</param>
-    /// <returns><c>"fr"</c> or <c>"en"</c>.</returns>
+    /// <param name="requested">The client's locale ("de", "fr", "en", or anything).</param>
+    /// <returns><c>"de"</c>, <c>"fr"</c> or <c>"en"</c>.</returns>
     public string ResolveLocale(string? requested)
     {
         var forced = UiLanguage?.Trim().ToLowerInvariant();
-        if (forced is "fr" or "en")
+        if (forced is "de" or "fr" or "en")
         {
             return forced;
         }
 
-        return requested is not null && requested.StartsWith("fr", System.StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
+        if (requested is not null)
+        {
+            if (requested.StartsWith("de", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return "de";
+            }
+
+            if (requested.StartsWith("fr", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return "fr";
+            }
+        }
+
+        return "en";
     }
 
     // 1. Language model (chat), always required
 
     /// <summary>
+    /// Gets or sets the AI provider preset: "omniroute", "openai", "anthropic", "gemini", or "custom".
+    /// </summary>
+    public string ChatProvider { get; set; } = "omniroute";
+
+    /// <summary>
     /// Gets or sets the full URL of the chat-completions endpoint the plugin
     /// calls to pick and explain titles. Any OpenAI-compatible endpoint works,
-    /// e.g. <c>https://api.openai.com/v1/chat/completions</c>,
-    /// <c>http://localhost:11434/v1/chat/completions</c> (Ollama), or a platform
-    /// <c>https://ai.example.com/api/media/chat</c>. This is the complete URL -
-    /// the plugin does not append a path.
+    /// e.g. <c>http://omniroute:20128/v1/chat/completions</c> (OmniRoute),
+    /// <c>https://api.openai.com/v1/chat/completions</c>,
+    /// <c>http://localhost:11434/v1/chat/completions</c> (Ollama), or Anthropic / Gemini formats.
     /// </summary>
     public string ChatEndpointUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the effective chat endpoint URL, taking into account provider defaults.
+    /// </summary>
+    public string GetEffectiveChatEndpointUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(ChatEndpointUrl))
+        {
+            return ChatEndpointUrl.Trim();
+        }
+
+        return ChatProvider?.Trim().ToLowerInvariant() switch
+        {
+            "omniroute" => "http://omniroute:20128/v1/chat/completions",
+            "openai" => "https://api.openai.com/v1/chat/completions",
+            "anthropic" => "https://api.anthropic.com/v1/messages",
+            "gemini" => "https://generativelanguage.googleapis.com/v1beta/models",
+            _ => string.Empty
+        };
+    }
 
     /// <summary>Gets or sets the bearer key for the chat endpoint (blank if it needs none).</summary>
     public string ChatApiKey { get; set; } = string.Empty;
@@ -217,6 +254,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// retrieval source as the popup; needs no language model.
     /// </summary>
     public bool SemanticSearchEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether semantic matching only activates
+    /// when no direct title matches are found in the library, or for sentence-like queries (>= 4 words).
+    /// When true, exact movie/show searches return immediately with 0 AI overhead, while zero-hit or descriptive queries
+    /// seamlessly produce AI recommendations in Web and third-party apps (like Plezy).
+    /// </summary>
+    public bool SemanticSearchFallbackOnly { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether native-search semantic matching

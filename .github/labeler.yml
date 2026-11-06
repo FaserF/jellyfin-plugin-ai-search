@@ -1,0 +1,16 @@
+backend:
+  - 'Jellyfin.Plugin.AiSearch/**/*.cs'
+  - 'Jellyfin.Plugin.AiSearch.csproj'
+
+frontend:
+  - 'Jellyfin.Plugin.AiSearch/Features/Script/**/*.js'
+
+tests:
+  - 'Jellyfin.Plugin.AiSearch.Tests/**/*'
+
+ci-cd:
+  - '.github/**/*'
+
+documentation:
+  - '*.md'
+  - 'docs/**/*'

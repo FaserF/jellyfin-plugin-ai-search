@@ -16,6 +16,32 @@ namespace Jellyfin.Plugin.AiSearch.Search;
 /// </summary>
 public static class TitleMatcher
 {
+    /// <summary>
+    /// Evaluates if a search query is structurally a natural language sentence or descriptive query
+    /// based on length, word count, and punctuation (purely structural and language-agnostic).
+    /// </summary>
+    /// <param name="searchTerm">The search query.</param>
+    /// <returns><c>true</c> if the query structurally resembles natural language rather than a short title.</returns>
+    public static bool LooksLikeSentenceQuery(string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return false;
+        }
+
+        var trimmed = searchTerm.Trim();
+        var words = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+        // 4 or more words or long phrase with multiple words indicates a descriptive sentence
+        if (words.Length >= 4 || (words.Length >= 3 && trimmed.Length >= 25))
+        {
+            return true;
+        }
+
+        // Sentence-ending punctuation or questioning
+        return trimmed.IndexOfAny(new[] { '?', '!', ';' }) >= 0;
+    }
+
     /// <summary>Whether the built-in title search matches <paramref name="item"/> for <paramref name="searchTerm"/>.</summary>
     /// <param name="item">The candidate item.</param>
     /// <param name="searchTerm">The raw search term.</param>
