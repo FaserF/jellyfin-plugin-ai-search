@@ -1184,8 +1184,16 @@
         }
 
         function currentTerm() {
-            var q = hashParam('query');
-            return q === null ? null : q.trim();
+            var q = hashParam('query') || hashParam('searchTerm') || hashParam('q');
+            if (!q) {
+                var input = document.querySelector('#searchPage input[type="search"], #searchPage input.search-input, #searchPage input');
+                if (input && typeof input.value === 'string') {
+                    q = input.value;
+                }
+            }
+            if (!q) { return ''; }
+            var trimmed = q.trim();
+            return trimmed.length >= 2 ? trimmed : '';
         }
 
         // Tell the server the web client shows meaning matches itself, so
@@ -1329,23 +1337,24 @@
             pending = false;
             var page = document.getElementById('searchPage');
             var term = currentTerm();
-            if (!state.enabled || !isSearchPage() || !page || !term) { removeRow(); return; }
+            if (!state.enabled || !isSearchPage() || !page || !term || term.length < 2) { removeRow(); return; }
 
             var entry = cache[term];
-            var row = document.getElementById('ais-airow');
+            if (!entry) { removeRow(); return; }
 
             // A finished search with no meaning match: no row at all.
-            if (entry && entry.status === 'done' && !entry.items.length) { removeRow(); return; }
+            if (entry.status === 'done' && !entry.items.length) { removeRow(); return; }
 
             // Anchor under Jellyfin's own outcome (its result rows or its "no
-            // results" message). While Jellyfin reloads, keep an existing row
-            // where it is rather than pulling it out of the page.
+            // results" message).
             var results = page.querySelector('.searchResults') || page.querySelector('.noItemsMessage');
-            if (!row && (!results || !entry)) { return; }
+            if (!results) { return; }
+
+            var row = document.getElementById('ais-airow');
             if (!row) { row = createRow(); }
 
             var s = t();
-            var ready = entry && entry.status === 'done';
+            var ready = entry.status === 'done';
             var hasItems = ready && entry.items && entry.items.length > 0;
             var isNoTitleHits = !!page.querySelector('.noItemsMessage');
 
@@ -1393,15 +1402,23 @@
         // Follow the search box (the web client keeps it in the URL), with a
         // short pause so typing does not fire a request per keystroke.
         function onTermChange() {
-            if (!state.enabled || !isSearchPage()) { schedule(); return; }
+            if (!state.enabled || !isSearchPage()) {
+                clearTimeout(timer);
+                removeRow();
+                return;
+            }
             var term = currentTerm();
+            if (!term || term.length < 2) {
+                lastTerm = '';
+                clearTimeout(timer);
+                removeRow();
+                return;
+            }
             if (term === lastTerm) { schedule(); return; }
             lastTerm = term;
             clearTimeout(timer);
             schedule();
-            if (term && term.length >= 2) {
-                timer = setTimeout(function () { if (currentTerm() === term) { load(term); } }, 400);
-            }
+            timer = setTimeout(function () { if (currentTerm() === term) { load(term); } }, 400);
         }
 
         function start() {

@@ -138,6 +138,13 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         var trace = GetOrCreateTrace();
         var config = Config;
 
+        var term = query.SearchTerm?.Trim();
+        if (string.IsNullOrWhiteSpace(term) || term.Length < 2)
+        {
+            RecordSkip(trace, "term_empty_or_too_short", enabled: true);
+            return false;
+        }
+
         var unavailable = Unavailable(config, _index);
         if (unavailable is not null)
         {
@@ -153,7 +160,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             return false;
         }
 
-        if (System.Text.RegularExpressions.Regex.IsMatch(query.SearchTerm ?? string.Empty, @"\b(yt|youtube)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (System.Text.RegularExpressions.Regex.IsMatch(term, @"\b(yt|youtube)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
         {
             RecordSkip(trace, "youtube_query_bypass", enabled: true);
             return false;
@@ -165,7 +172,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             return false;
         }
 
-        if (TooShort(config, query.SearchTerm))
+        if (TooShort(config, term))
         {
             // The sentence is still being typed: load a cold model now so it
             // is ready by the time the query is long enough to run.
@@ -188,6 +195,13 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
     {
         var trace = GetOrCreateTrace();
         var config = Config;
+        var term = query.SearchTerm?.Trim();
+        if (string.IsNullOrWhiteSpace(term) || term.Length < 2)
+        {
+            RecordSkip(trace, "term_empty_or_too_short", enabled: true);
+            return Array.Empty<SearchResult>();
+        }
+
         var take = Math.Clamp(config.SemanticSearchMaxResults, 1, 100);
         if (trace is not null)
         {
@@ -198,7 +212,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         // When SemanticSearchFallbackOnly is active and query is not a sentence,
         // check whether native title matches already exist in the user's library.
         // If they do, step aside immediately with zero AI latency so native results show up instantly.
-        if (config.SemanticSearchFallbackOnly && !TitleMatcher.LooksLikeSentenceQuery(query.SearchTerm))
+        if (config.SemanticSearchFallbackOnly && !TitleMatcher.LooksLikeSentenceQuery(term))
         {
             var testUser = query.UserId is Guid checkUid && checkUid != Guid.Empty ? _userManager.GetUserById(checkUid) : null;
             if (HasDirectTitleMatch(query, testUser, AllowedKinds(query)))
@@ -221,7 +235,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             // Guid.Empty is never a resolvable user; GetUserById throws on it.
             var user = query.UserId is Guid uid && uid != Guid.Empty ? _userManager.GetUserById(uid) : null;
             var found = await _matcher
-                .FindAsync(config, query.SearchTerm, user, AllowedKinds(query), query.ParentId, take, linkedSource.Token)
+                .FindAsync(config, term, user, AllowedKinds(query), query.ParentId, take, linkedSource.Token)
                 .ConfigureAwait(false);
 
             var count = found.Matches.Count;

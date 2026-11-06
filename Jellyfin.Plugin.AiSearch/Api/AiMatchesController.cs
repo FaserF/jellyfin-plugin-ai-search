@@ -87,7 +87,7 @@ public class AiMatchesController : ControllerBase
     {
         var config = Config;
         term = term?.Trim() ?? string.Empty;
-        var skipped = term.Length == 0 ? "empty"
+        var skipped = term.Length < 2 ? "empty"
             : Search.SemanticSearchProvider.Unavailable(config, _index)
               ?? (!config.ShowAiSearchRow ? "disabled" : Search.SemanticSearchProvider.TooShort(config, term) ? "too_short" : null);
         if (skipped is not null)

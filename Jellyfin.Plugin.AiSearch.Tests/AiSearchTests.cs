@@ -203,4 +203,28 @@ public class AiSearchTests
         json.Should().Contain("USER_DISLIKED (1-2 stars): Cats (2019)");
         json.Should().Contain("USER_TASTE_PROFILE: Loves mind-bending thrillers.");
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("a")]
+    public void SemanticSearchProvider_CanSearch_ReturnsFalseForEmptyOrTooShort(string? queryText)
+    {
+        var appPathsMock = new Mock<MediaBrowser.Common.Configuration.IApplicationPaths>();
+        appPathsMock.Setup(x => x.PluginsPath).Returns(Path.GetTempPath());
+        appPathsMock.Setup(x => x.PluginConfigurationsPath).Returns(Path.GetTempPath());
+        var xmlSerializerMock = new Mock<MediaBrowser.Model.Serialization.IXmlSerializer>();
+
+        _ = new Plugin(appPathsMock.Object, xmlSerializerMock.Object);
+
+        var provider = new SemanticSearchProvider(
+            null!, null!, null!, null!,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object,
+            null!,
+            new Mock<Microsoft.Extensions.Logging.ILogger<SemanticSearchProvider>>().Object);
+
+        var query = new SearchProviderQuery { SearchTerm = queryText! };
+        provider.CanSearch(query).Should().BeFalse();
+    }
 }
