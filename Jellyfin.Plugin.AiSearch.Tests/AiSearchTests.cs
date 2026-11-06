@@ -91,7 +91,7 @@ public class AiSearchTests
     {
         var candidates = new List<CandidateMovie>
         {
-            new(new Movie { Name = "Inception", ProductionYear = 2010 }, 0.95f)
+            new(new Movie { Name = "Inception", ProductionYear = 2010 }, "Leonardo DiCaprio, Joseph Gordon-Levitt")
         };
 
         var messages = PromptBuilder.BuildMessages(

@@ -268,7 +268,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
     /// </summary>
     /// <param name="query">The provider query.</param>
     /// <returns>The allowed kinds, possibly empty.</returns>
-    internal static HashSet<BaseItemKind> AllowedKinds(SearchProviderQuery query) =>
+    public static HashSet<BaseItemKind> AllowedKinds(SearchProviderQuery query) =>
         AllowedKinds(query.IncludeItemTypes, query.ExcludeItemTypes, query.MediaTypes);
 
     /// <summary>Narrows Movie, Series and Episode by include/exclude types and media types.</summary>
@@ -276,7 +276,7 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
     /// <param name="exclude">Excluded kinds, used when nothing is included explicitly.</param>
     /// <param name="mediaTypes">Requested media types (empty = any).</param>
     /// <returns>The allowed kinds, possibly empty.</returns>
-    internal static HashSet<BaseItemKind> AllowedKinds(IReadOnlyCollection<BaseItemKind> include, IReadOnlyCollection<BaseItemKind> exclude, IReadOnlyCollection<MediaType> mediaTypes)
+    public static HashSet<BaseItemKind> AllowedKinds(IReadOnlyCollection<BaseItemKind> include, IReadOnlyCollection<BaseItemKind> exclude, IReadOnlyCollection<MediaType> mediaTypes)
     {
         var kinds = new HashSet<BaseItemKind>(SupportedKinds);
         if (include.Count > 0)
