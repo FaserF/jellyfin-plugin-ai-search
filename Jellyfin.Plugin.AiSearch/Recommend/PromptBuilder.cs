@@ -29,6 +29,9 @@ public static class PromptBuilder
     /// Maximum synopsis length (chars) per candidate. 0 or less means no
     /// limit, the full synopsis is sent uncropped.
     /// </param>
+    /// <param name="tasteProfile">Optional distilled summary of the viewer's taste.</param>
+    /// <param name="lovedRatings">Optional titles rated 4-5 stars by the user.</param>
+    /// <param name="dislikedRatings">Optional titles rated 1-2 stars by the user.</param>
     /// <returns>The messages array for the completions payload.</returns>
     public static object[] BuildMessages(
         string prompt,
@@ -39,7 +42,9 @@ public static class PromptBuilder
         List<string> watched,
         bool includeDetails,
         int synopsisLength,
-        string? tasteProfile = null)
+        string? tasteProfile = null,
+        List<string>? lovedRatings = null,
+        List<string>? dislikedRatings = null)
     {
         var language = locale switch
         {
@@ -55,7 +60,9 @@ public static class PromptBuilder
             "Include a movie ONLY if it genuinely satisfies the request; never include one that fails a stated " +
             "constraint (e.g. an actor, year, or genre the user asked for), and never list a movie just to explain " +
             "why it was excluded. If only one movie fits, return exactly one; if none fit, return an empty list. " +
-            "When many genuinely fit, return up to " + maxResults + " for variety. " + language +
+            "When many genuinely fit, return up to " + maxResults + " for variety. " +
+            "Consider user ratings: heavily favor candidates matching the tone or genre of USER_LOVED (4-5 stars) titles, " +
+            "and strictly avoid candidates resembling USER_DISLIKED (1-2 stars) titles. " + language +
             "Respond with STRICT minified JSON only (no markdown, no prose) of exactly this shape: " +
             "{\"answer\":\"one short sentence\",\"recommendations\":[{\"index\":<integer from the list>,\"reason\":\"<=140 chars why it fits\"}]}.";
 
@@ -64,6 +71,16 @@ public static class PromptBuilder
         if (!string.IsNullOrWhiteSpace(tasteProfile))
         {
             user.Append("USER_TASTE_PROFILE: ").Append(tasteProfile.Trim()).Append('\n');
+        }
+
+        if (lovedRatings is { Count: > 0 })
+        {
+            user.Append("USER_LOVED (4-5 stars): ").Append(string.Join("; ", lovedRatings)).Append('\n');
+        }
+
+        if (dislikedRatings is { Count: > 0 })
+        {
+            user.Append("USER_DISLIKED (1-2 stars): ").Append(string.Join("; ", dislikedRatings)).Append('\n');
         }
 
         if (favorites.Count > 0)

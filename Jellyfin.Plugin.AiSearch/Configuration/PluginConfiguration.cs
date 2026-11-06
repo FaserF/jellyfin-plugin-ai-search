@@ -325,4 +325,31 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Gets or sets how many days of search log files are kept (clamped to 1-365 at write/prune time).</summary>
     public int SearchLogRetentionDays { get; set; } = 7;
+
+    // 6. Suggestarr & Seerr integration
+
+    /// <summary>Gets or sets a value indicating whether Suggestarr / Jellyseerr integration is enabled.</summary>
+    public bool SuggestarrEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the target provider type: "suggestarr" (Suggestarr v1 API) or "jellyseerr" (Jellyseerr / Overseerr).
+    /// </summary>
+    public string SuggestarrProviderType { get; set; } = "suggestarr";
+
+    /// <summary>Gets or sets the base URL for Suggestarr or Jellyseerr (e.g. http://suggestarr:5000 or http://jellyseerr:5055).</summary>
+    public string SuggestarrUrl { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the API key for Suggestarr or Jellyseerr.</summary>
+    public string SuggestarrApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether giving high star ratings (>= <see cref="SuggestarrMinRating"/>)
+    /// automatically sends suggestions or download requests to Suggestarr / Jellyseerr.
+    /// </summary>
+    public bool SuggestarrAutoRequest { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the minimum star rating (1-5) required to trigger auto requests (default 4).
+    /// </summary>
+    public int SuggestarrMinRating { get; set; } = 4;
 }

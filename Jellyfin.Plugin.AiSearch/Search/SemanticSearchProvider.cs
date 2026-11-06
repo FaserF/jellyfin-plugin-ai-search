@@ -153,6 +153,12 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             return false;
         }
 
+        if (System.Text.RegularExpressions.Regex.IsMatch(query.SearchTerm ?? string.Empty, @"\b(yt|youtube)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            RecordSkip(trace, "youtube_query_bypass", enabled: true);
+            return false;
+        }
+
         if (AllowedKinds(query).Count == 0)
         {
             RecordSkip(trace, "types_not_indexed", enabled: true);

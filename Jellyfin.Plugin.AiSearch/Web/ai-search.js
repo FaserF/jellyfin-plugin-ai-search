@@ -1231,6 +1231,11 @@
         function load(term) {
             var a = api();
             if (!a || cache[term]) { schedule(); return; }
+            if (/\b(yt|youtube)\b/i.test(term)) {
+                cache[term] = { status: 'done', items: [] };
+                schedule();
+                return;
+            }
             var entry = cache[term] = { status: 'pending', items: [] };
             var url = 'AiSearch/Matches?term=' + encodeURIComponent(term) + '&locale=' + locale();
             var parentId = hashParam('parentId');

@@ -142,4 +142,51 @@ public class AiSearchTests
         var allowed = SemanticSearchProvider.AllowedKinds(query);
         allowed.Should().ContainSingle().Which.Should().Be(BaseItemKind.Movie);
     }
+
+    [Theory]
+    [InlineData(10.0, 5)]
+    [InlineData(9.0, 5)]
+    [InlineData(8.0, 4)]
+    [InlineData(7.0, 4)]
+    [InlineData(6.0, 3)]
+    [InlineData(5.0, 5)] // 1-5 scale directly
+    [InlineData(4.0, 4)]
+    [InlineData(3.0, 3)]
+    [InlineData(2.0, 2)]
+    [InlineData(1.0, 1)]
+    [InlineData(0.0, 0)]
+    public void RatingSyncService_NormalizeToStars_ConvertsCorrectly(double rawRating, int expectedStars)
+    {
+        Jellyfin.Plugin.AiSearch.Ratings.RatingSyncService.NormalizeToStars(rawRating).Should().Be(expectedStars);
+    }
+
+    [Fact]
+    public void PromptBuilder_BuildMessages_IncludesUserRatingsDirectives()
+    {
+        var candidates = new List<CandidateMovie>
+        {
+            new(new Movie { Name = "Inception", ProductionYear = 2010 }, "Leonardo DiCaprio")
+        };
+
+        var loved = new List<string> { "Interstellar (2014)", "The Dark Knight (2008)" };
+        var disliked = new List<string> { "Cats (2019)" };
+
+        var messages = PromptBuilder.BuildMessages(
+            "Sci-Fi",
+            "en",
+            5,
+            candidates,
+            new List<string>(),
+            new List<string>(),
+            true,
+            200,
+            tasteProfile: "Loves mind-bending thrillers.",
+            lovedRatings: loved,
+            dislikedRatings: disliked);
+
+        var json = JsonSerializer.Serialize(messages);
+        json.Should().Contain("USER_LOVED (4-5 stars): Interstellar (2014); The Dark Knight (2008)");
+        json.Should().Contain("USER_DISLIKED (1-2 stars): Cats (2019)");
+        json.Should().Contain("USER_TASTE_PROFILE: Loves mind-bending thrillers.");
+    }
 }

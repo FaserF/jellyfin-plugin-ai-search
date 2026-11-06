@@ -103,6 +103,7 @@ public class AiSearchController : ControllerBase
     private readonly IPlaylistManager _playlistManager;
     private readonly HistoryStore _history;
     private readonly TasteProfileStore _taste;
+    private readonly UserRatingStore _ratingStore;
     private readonly SearchLogStore _searchLog;
     private readonly ILogger<AiSearchController> _logger;
 
@@ -120,6 +121,7 @@ public class AiSearchController : ControllerBase
         IPlaylistManager playlistManager,
         HistoryStore history,
         TasteProfileStore taste,
+        UserRatingStore ratingStore,
         SearchLogStore searchLog,
         ILogger<AiSearchController> logger)
     {
@@ -135,6 +137,7 @@ public class AiSearchController : ControllerBase
         _playlistManager = playlistManager;
         _history = history;
         _taste = taste;
+        _ratingStore = ratingStore;
         _searchLog = searchLog;
         _logger = logger;
     }
@@ -825,7 +828,20 @@ public class AiSearchController : ControllerBase
 
         // Cast + synopsis only with semantic retrieval: ~40 rich lines help the
         // model judge fit, while hundreds of them would explode the token count.
-        var messages = PromptBuilder.BuildMessages(prompt, locale, maxResults, candidates, favorites, watched, includeDetails: usedSemantic, synopsisLength: c.SynopsisMaxLength, tasteProfile: tasteProfile);
+        var lovedRatings = _ratingStore.GetTopRated(userId, minStars: 4).Select(r => r.Title ?? r.ItemId).Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        var dislikedRatings = _ratingStore.GetLowRated(userId, maxStars: 2).Select(r => r.Title ?? r.ItemId).Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        var messages = PromptBuilder.BuildMessages(
+            prompt,
+            locale,
+            maxResults,
+            candidates,
+            favorites,
+            watched,
+            includeDetails: usedSemantic,
+            synopsisLength: c.SynopsisMaxLength,
+            tasteProfile: tasteProfile,
+            lovedRatings: lovedRatings,
+            dislikedRatings: dislikedRatings);
 
         string content;
         try

@@ -125,6 +125,16 @@ Configurable with pre-built provider presets and a 1-click connection test butto
 - Considers user favorites and watched history as optional taste signals.
 - Generates a local, private viewer taste profile to bias recommendations without invading privacy or requiring cloud-synced user tracking.
 
+### 7. Star Ratings Ecosystem & Suggestarr Auto-Downloads
+- **Native Synergy with [K3ntas Ratings Plugin](https://github.com/K3ntas/jellyfin-plugin-ratings) & Plezy:**
+  - Integrates seamlessly with `K3ntas/jellyfin-plugin-ratings` and native Jellyfin `IUserDataManager.UserDataSaved` events.
+  - Automatically captures 1–10 star community ratings from the web UI and external clients like **Plezy**, normalizing them to high-precision 1–5 star preferences.
+  - User-loved titles (4–5★) strongly bias recommendation themes, directors, and genres (`USER_LOVED`).
+  - Disliked titles (1–2★) are penalized and avoided in recommendation prompts (`USER_DISLIKED`).
+- **Suggestarr & Seerr Integration:**
+  - Automated Suggestarr / Jellyseerr / Overseerr request dispatch when a user rates media with $\ge 4$ stars.
+  - Dedicated official Suggestarr feed endpoint at `GET /AiSearch/Suggestarr/Feed?userId={userId}&minStars=4` for scheduled Suggestarr suggestion import jobs.
+
 ---
 
 ## 📦 Installation & Repository Setup

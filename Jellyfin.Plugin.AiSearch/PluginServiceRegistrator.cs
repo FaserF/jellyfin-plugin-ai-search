@@ -1,7 +1,9 @@
 using Jellyfin.Plugin.AiSearch.History;
+using Jellyfin.Plugin.AiSearch.Ratings;
 using Jellyfin.Plugin.AiSearch.Recommend;
 using Jellyfin.Plugin.AiSearch.Search;
 using Jellyfin.Plugin.AiSearch.SearchLog;
+using Jellyfin.Plugin.AiSearch.Suggestarr;
 using Jellyfin.Plugin.AiSearch.Web;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
@@ -52,6 +54,11 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Per-user search history + taste profile (JSON files under the data folder).
         serviceCollection.AddSingleton<HistoryStore>();
         serviceCollection.AddSingleton<TasteProfileStore>();
+        serviceCollection.AddSingleton<UserRatingStore>();
+        serviceCollection.AddHostedService<RatingSyncService>();
+
+        // Suggestarr and Jellyseerr client
+        serviceCollection.AddSingleton<SuggestarrClient>();
 
         // Search log: a global MVC filter captures every native Jellyfin search
         // (not just this plugin's own controllers), a queue decouples that from

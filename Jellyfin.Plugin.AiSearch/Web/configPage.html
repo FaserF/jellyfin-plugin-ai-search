@@ -344,6 +344,55 @@
                 </div>
                 <p class="fieldDescription">The log is read by an admin or API key at <code>GET /AiSearch/SearchLog</code>.</p>
 
+                <!-- 6. Suggestarr & Media Requests -->
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">6. Suggestarr &amp; Media Requests</h3>
+                    <p class="fieldDescription">
+                        Integrates with <b>Suggestarr</b> and <b>Jellyseerr / Overseerr</b>. Automatically factors user ratings (from the K3ntas Ratings plugin, Plezy, or Jellyfin Web) into AI recommendations and triggers automated download suggestions.
+                    </p>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="SuggestarrEnabled" />
+                        <span>Enable Suggestarr / Seerr Integration</span>
+                    </label>
+                    <div class="fieldDescription">When enabled, user ratings and AI recommendations feed into automated suggestions and downloads.</div>
+                </div>
+                <div class="selectContainer">
+                    <select is="emby-select" id="SuggestarrProviderType" label="Target Service">
+                        <option value="suggestarr">Suggestarr (v1 REST API)</option>
+                        <option value="jellyseerr">Jellyseerr / Overseerr (v1 API)</option>
+                    </select>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="SuggestarrUrl" label="Service URL" />
+                    <div class="fieldDescription">Examples: <code>http://suggestarr:5000</code> or <code>http://jellyseerr:5055</code>.</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="password" id="SuggestarrApiKey" label="API key" autocomplete="off" />
+                    <div class="fieldDescription">API key from Suggestarr user profile or Jellyseerr Settings &rarr; General.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="SuggestarrAutoRequest" />
+                        <span>Auto-send suggestion / request when rated highly</span>
+                    </label>
+                    <div class="fieldDescription">Triggers an automatic request/suggestion when a user rates an item with the minimum stars configured below.</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="SuggestarrMinRating" label="Minimum stars for auto-request (1-5)" min="1" max="5" />
+                    <div class="fieldDescription">Default: 4 stars (or 8/10 in the K3ntas Ratings plugin).</div>
+                </div>
+                <div class="buttonContainer" style="margin-bottom:1.5em;">
+                    <button is="emby-button" type="button" class="raised button-accent" id="TestSuggestarrConnection">Test Suggestarr Connection</button>
+                    <span id="SuggestarrTestResult" style="margin-left:1em; font-weight:500;"></span>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 0.8em; border-radius: 4px; margin-bottom: 1.5em; font-size: 0.88em;">
+                    <b>Suggestarr Feed Endpoint:</b><br />
+                    <code>GET /AiSearch/Suggestarr/Feed?userId={userId}&amp;minStars=4</code><br />
+                    <span style="opacity: 0.8;">Provides an official JSON list of user-favorited and highly rated candidates for Suggestarr automated import jobs.</span>
+                </div>
+
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
@@ -487,6 +536,12 @@
                     page.querySelector('#NativeSearchOnly').checked = cfg.NativeSearchOnly === true;
                     page.querySelector('#LogSearches').checked = cfg.LogSearches === true;
                     page.querySelector('#SearchLogRetentionDays').value = cfg.SearchLogRetentionDays;
+                    page.querySelector('#SuggestarrEnabled').checked = cfg.SuggestarrEnabled === true;
+                    page.querySelector('#SuggestarrProviderType').value = cfg.SuggestarrProviderType || 'suggestarr';
+                    page.querySelector('#SuggestarrUrl').value = cfg.SuggestarrUrl || '';
+                    page.querySelector('#SuggestarrApiKey').value = cfg.SuggestarrApiKey || '';
+                    page.querySelector('#SuggestarrAutoRequest').checked = cfg.SuggestarrAutoRequest !== false;
+                    page.querySelector('#SuggestarrMinRating').value = cfg.SuggestarrMinRating || 4;
                     applyRetrievalMode();
                     applySentencesOnly();
                     applyNativeSearchOnly();
@@ -574,6 +629,12 @@
                     cfg.NativeSearchOnly = page.querySelector('#NativeSearchOnly').checked;
                     cfg.LogSearches = page.querySelector('#LogSearches').checked;
                     cfg.SearchLogRetentionDays = parseInt(page.querySelector('#SearchLogRetentionDays').value, 10) || 7;
+                    cfg.SuggestarrEnabled = page.querySelector('#SuggestarrEnabled').checked;
+                    cfg.SuggestarrProviderType = page.querySelector('#SuggestarrProviderType').value || 'suggestarr';
+                    cfg.SuggestarrUrl = page.querySelector('#SuggestarrUrl').value.trim();
+                    cfg.SuggestarrApiKey = page.querySelector('#SuggestarrApiKey').value.trim();
+                    cfg.SuggestarrAutoRequest = page.querySelector('#SuggestarrAutoRequest').checked;
+                    cfg.SuggestarrMinRating = parseInt(page.querySelector('#SuggestarrMinRating').value, 10) || 4;
                     ApiClient.updatePluginConfiguration(AiSearchPluginId, cfg).then(function (r) {
                         Dashboard.processPluginConfigurationUpdateResult(r);
                     });
@@ -671,6 +732,31 @@
                 }).catch(function (err) {
                     btn.disabled = false;
                     resSpan.textContent = '\u2717 Connection failed (check endpoint/network)';
+                    resSpan.style.color = '#f44336';
+                });
+            });
+            document.querySelector('#TestSuggestarrConnection').addEventListener('click', function () {
+                var btn = this;
+                var resSpan = page.querySelector('#SuggestarrTestResult');
+                btn.disabled = true;
+                resSpan.textContent = 'Testing connection...';
+                resSpan.style.color = '';
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('AiSearch/Suggestarr/Test'),
+                    dataType: 'json'
+                }).then(function (res) {
+                    btn.disabled = false;
+                    if (res && res.success) {
+                        resSpan.textContent = '\u2713 ' + (res.message || 'Connected successfully!');
+                        resSpan.style.color = '#4caf50';
+                    } else {
+                        resSpan.textContent = '\u2717 ' + (res && res.message ? res.message : 'Connection failed');
+                        resSpan.style.color = '#f44336';
+                    }
+                }).catch(function () {
+                    btn.disabled = false;
+                    resSpan.textContent = '\u2717 Connection failed (ensure settings are saved)';
                     resSpan.style.color = '#f44336';
                 });
             });
