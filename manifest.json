@@ -6,16 +6,8 @@
     "overview": "Universal AI natural-language search & smart recommendations from your own library.",
     "owner": "FaserF",
     "category": "General",
-    "imageUrl": "",
+    "imageUrl": "https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/Jellyfin.Plugin.AiSearch/thumb.png",
     "versions": [
-      {
-        "version": "1.4.0.0",
-        "changelog": "Full Changelog:\n\n### ✨ New Features\n\n- universal dual-stage AI search, Plezy & third-party support, multi-provider LLM gateway, and v1.4.0.0 ([e57cebe](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/e57cebe))\n\n### 🐛 Bug Fixes\n\n- **tests:** make AllowedKinds public and fix CandidateMovie constructor argument in tests ([98b305e](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/98b305e))\n- **build:** add User entity namespace and include meta.json at repository root ([a674a69](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/a674a69))\n- Add a language option, always show the AI row, fix the history list layout ([ad9113a](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/ad9113a))\n- Caption the screenshots and fix their alt text ([5d86564](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/5d86564))\n- Fix broken launcher script (unescaped apostrophe) and revalidate client script ([94fe30b](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/94fe30b))\n- Fix typos and tidy config wording ([c94dcf0](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/c94dcf0))\n- stop show more repeating results and empty answers ([3a674f7](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/3a674f7))\n- 1.5.3: fix Surprise me recommending episodes on TV Shows scope ([a3c5039](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/a3c5039))\n- 1.5.1: fix empty model list on config page ([253ffc4](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/253ffc4))\n\n### 🔒 Security\n\n- 1.5.0: redesigned popup, surprise/collection/history, TV shows, taste profile ([24b8cc7](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/24b8cc7))\n\n### ⚡ Performance\n\n- Speed up semantic search and label AI matches in Jellyfin search; release 1.3.0.0 ([cf19ceb](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/cf19ceb))",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/FaserF/jellyfin-plugin-ai-search/releases/download/v1.4.0.0/ai-search.zip",
-        "checksum": "d46a383c164ca600520e145562c40a72",
-        "timestamp": "2026-11-06T01:42:49Z"
-      },
       {
         "version": "1.4.0.0",
         "changelog": "Full Changelog:\n\n### ✨ New Features\n\n- universal dual-stage AI search, Plezy & third-party support, multi-provider LLM gateway, and v1.4.0.0 ([e57cebe](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/e57cebe))\n\n### 🐛 Bug Fixes\n\n- **tests:** make AllowedKinds public and fix CandidateMovie constructor argument in tests ([98b305e](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/98b305e))\n- **build:** add User entity namespace and include meta.json at repository root ([a674a69](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/a674a69))\n- Add a language option, always show the AI row, fix the history list layout ([ad9113a](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/ad9113a))\n- Caption the screenshots and fix their alt text ([5d86564](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/5d86564))\n- Fix broken launcher script (unescaped apostrophe) and revalidate client script ([94fe30b](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/94fe30b))\n- Fix typos and tidy config wording ([c94dcf0](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/c94dcf0))\n- stop show more repeating results and empty answers ([3a674f7](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/3a674f7))\n- 1.5.3: fix Surprise me recommending episodes on TV Shows scope ([a3c5039](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/a3c5039))\n- 1.5.1: fix empty model list on config page ([253ffc4](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/253ffc4))\n\n### 🔒 Security\n\n- 1.5.0: redesigned popup, surprise/collection/history, TV shows, taste profile ([24b8cc7](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/24b8cc7))\n\n### ⚡ Performance\n\n- Speed up semantic search and label AI matches in Jellyfin search; release 1.3.0.0 ([cf19ceb](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/cf19ceb))",
@@ -47,38 +39,6 @@
         "sourceUrl": "https://github.com/Franciskid/jellyfin-plugin-ai-search/releases/download/v1.2.0.0/ai-search_1.2.0.0.zip",
         "checksum": "907fe4dac6d05bf1ba1062c75f3c95e9",
         "timestamp": "2026-09-19T00:00:00Z"
-      },
-      {
-        "version": "1.1.1.0",
-        "changelog": "Fixes the search button missing on new Docker installs.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/Franciskid/jellyfin-plugin-ai-search/releases/download/v1.1.1.0/ai-search_1.1.1.0.zip",
-        "checksum": "fb0aa61b6a3999a337ba8272de04e74b",
-        "timestamp": "2026-09-18T00:00:00Z"
-      },
-      {
-        "version": "1.1.0.0",
-        "changelog": "One unified setup: a chat endpoint plus a local or remote retrieval source (replaces the old Direct/Platform modes). New: search without a language model, returning retrieval matches ranked by relevance with no per-result reasons. Embedding model is now a dropdown, and endpoints are configured per capability.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/Franciskid/jellyfin-plugin-ai-search/releases/download/v1.1.0.0/ai-search_1.1.0.0.zip",
-        "checksum": "afd500be5d07c26705ba961f4c6a918c",
-        "timestamp": "2026-07-30T00:00:00Z"
-      },
-      {
-        "version": "1.0.1.0",
-        "changelog": "Show more now returns new titles instead of repeating the first results. Recommendations no longer come back empty on reasoning models.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/Franciskid/jellyfin-plugin-ai-search/releases/download/v1.0.1.0/ai-search_1.0.1.0.zip",
-        "checksum": "a4939dc28426e5a51fbc860596f7e0f2",
-        "timestamp": "2026-07-24T00:00:00Z"
-      },
-      {
-        "version": "1.0.0.0",
-        "changelog": "Fixed a bug when choosing TV or Movies in platform mode.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/Franciskid/jellyfin-plugin-ai-search/releases/download/v1.0.0.0/ai-search_1.0.0.0.zip",
-        "checksum": "a2242a02581a8bf4e0fe9ebad36c6207",
-        "timestamp": "2026-07-06T00:00:00Z"
       }
     ]
   }

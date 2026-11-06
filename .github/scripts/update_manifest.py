@@ -51,8 +51,8 @@ def main():
     now_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     source_url = f"https://github.com/{args.repo}/releases/download/v{args.version}/ai-search.zip"
 
-    # Supported target ABIs (Jellyfin 12.0 and 10.10)
-    target_abis = ["12.0.0.0", "10.10.0.0"]
+    # Supported target ABIs (Exclusive Jellyfin 12+ support)
+    target_abis = ["12.0.0.0"]
 
     for plugin in manifest:
         if plugin.get("guid", "").lower() == "d0a3f1e6-9c2b-4a7d-8e5f-1b2c3d4e5f6a":

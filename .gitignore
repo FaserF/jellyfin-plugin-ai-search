@@ -14,6 +14,7 @@ obj/
 *credentials*
 package_staging/
 dist/
+artifacts/
 checksums.txt
 CHANGELOG_RELEASE.md
 CHANGELOG_SUMMARY.txt

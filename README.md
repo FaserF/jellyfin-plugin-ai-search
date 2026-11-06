@@ -1,11 +1,13 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/docs/images/banner.png" alt="Jellyfin AI Search Banner" width="100%" />
+
 # 🧠 Universal AI Search & Smart Recommendations for Jellyfin (`Jellyfin.Plugin.AiSearch`)
 
 **Natural Language Semantic Search, Dual-Stage Zero-Hit Fallback, Multi-Provider LLM Gateway & Third-Party Client Bridge (Plezy, Findroid, Swiftfin, Web)**
 
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
-[![Jellyfin 10.10+ | 12.x](https://img.shields.io/badge/Jellyfin-10.10%2B%20%7C%2012.x-00A4DC?logo=jellyfin&logoColor=white)](https://jellyfin.org/)
+[![Jellyfin 12.x+](https://img.shields.io/badge/Jellyfin-12.x%2B%20Only-00A4DC?logo=jellyfin&logoColor=white)](https://jellyfin.org/)
 [![OmniRoute Native](https://img.shields.io/badge/OmniRoute-Native%20Zero--Config-FF6B6B)](https://github.com/FaserF/Jarvis)
 [![Multi-Provider](https://img.shields.io/badge/LLM-OmniRoute%20%7C%20OpenAI%20%7C%20Claude%20%7C%20Gemini-34A853)](#-multi-provider-ai-engine)
 [![Clients](https://img.shields.io/badge/Clients-Web%20%7C%20Plezy%20%7C%20Findroid%20%7C%20Swiftfin-00A4DC)](#-third-party-app-support)
