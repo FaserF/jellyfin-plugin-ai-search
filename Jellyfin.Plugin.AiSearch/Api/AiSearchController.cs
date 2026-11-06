@@ -226,7 +226,10 @@ public class AiSearchController : ControllerBase
 
         var c = Config;
         Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-        return await ListModelsAsync(c.ModelsEndpointUrl, c.ChatApiKey, cancellationToken).ConfigureAwait(false);
+        var url = !string.IsNullOrWhiteSpace(c.ModelsEndpointUrl)
+            ? c.ModelsEndpointUrl.Trim()
+            : c.GetEffectiveModelsEndpointUrl();
+        return await ListModelsAsync(url, c.ChatApiKey, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Proxies the embedding-model list for the local-index dropdown (admin only; only the config page calls this).</summary>
@@ -243,7 +246,9 @@ public class AiSearchController : ControllerBase
         Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
         // A dedicated embedding-models URL when set, otherwise the main models
         // list (the user picks the embedding model from all of them).
-        var url = string.IsNullOrWhiteSpace(c.EmbeddingModelsEndpointUrl) ? c.ModelsEndpointUrl : c.EmbeddingModelsEndpointUrl;
+        var url = !string.IsNullOrWhiteSpace(c.EmbeddingModelsEndpointUrl)
+            ? c.EmbeddingModelsEndpointUrl.Trim()
+            : c.GetEffectiveModelsEndpointUrl();
         var key = string.IsNullOrWhiteSpace(c.EmbeddingApiKey) ? c.ChatApiKey : c.EmbeddingApiKey;
         return await ListModelsAsync(url, key, cancellationToken).ConfigureAwait(false);
     }
@@ -261,30 +266,50 @@ public class AiSearchController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(effectiveUrl))
         {
+            var candidateUrls = new List<string> { effectiveUrl };
+            if (effectiveUrl.Contains("omniroute", StringComparison.OrdinalIgnoreCase))
+            {
+                candidateUrls.Add(effectiveUrl.Replace("omniroute", "100.64.0.1", StringComparison.OrdinalIgnoreCase));
+                candidateUrls.Add(effectiveUrl.Replace("omniroute", "172.17.0.1", StringComparison.OrdinalIgnoreCase));
+                candidateUrls.Add(effectiveUrl.Replace("omniroute", "127.0.0.1", StringComparison.OrdinalIgnoreCase));
+            }
+
             try
             {
                 using var client = CreateClient(Config, apiKey);
+                client.Timeout = TimeSpan.FromSeconds(10);
                 if (isOmniRoute)
                 {
                     client.DefaultRequestHeaders.TryAddWithoutValidation("X-Session-Source", "jellyfin-ai-search");
                 }
 
-                using var resp = await client.GetAsync(effectiveUrl, cancellationToken).ConfigureAwait(false);
-                if (resp.IsSuccessStatusCode)
+                foreach (var targetUrl in candidateUrls)
                 {
-                    var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var remoteIds = ExtractModelIds(body);
-                    foreach (var rid in remoteIds)
+                    try
                     {
-                        if (!ids.Contains(rid, StringComparer.OrdinalIgnoreCase))
+                        using var resp = await client.GetAsync(targetUrl, cancellationToken).ConfigureAwait(false);
+                        if (resp.IsSuccessStatusCode)
                         {
-                            ids.Add(rid);
+                            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                            var remoteIds = ExtractModelIds(body);
+                            foreach (var rid in remoteIds)
+                            {
+                                if (!ids.Contains(rid, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    ids.Add(rid);
+                                }
+                            }
+                            break;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("AiSearch: remote models endpoint {Url} returned status {StatusCode}", targetUrl, resp.StatusCode);
                         }
                     }
-                }
-                else
-                {
-                    _logger.LogWarning("AiSearch: remote models endpoint {Url} returned status {StatusCode}", effectiveUrl, resp.StatusCode);
+                    catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogDebug(ex, "AiSearch: failed to reach models endpoint {Url}, trying fallback candidate if available", targetUrl);
+                    }
                 }
             }
             catch (Exception ex)
