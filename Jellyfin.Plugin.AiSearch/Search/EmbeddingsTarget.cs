@@ -18,16 +18,24 @@ public sealed record EmbeddingsTarget(string BaseUrl, string ApiKey, string Mode
     /// <returns>The target, or <c>null</c> when the local index is not configured.</returns>
     public static EmbeddingsTarget? FromConfiguration(PluginConfiguration config)
     {
-        if (string.IsNullOrWhiteSpace(config.EmbeddingModel)
-            || string.IsNullOrWhiteSpace(config.EmbeddingEndpointUrl))
+        var effectiveUrl = config.GetEffectiveEmbeddingEndpointUrl();
+        var effectiveModel = !string.IsNullOrWhiteSpace(config.EmbeddingModel)
+            ? config.EmbeddingModel.Trim()
+            : (string.Equals(config.ChatProvider, "omniroute", StringComparison.OrdinalIgnoreCase) ? "local-onnx/local-onnx-int8" : string.Empty);
+
+        if (string.IsNullOrWhiteSpace(effectiveModel) || string.IsNullOrWhiteSpace(effectiveUrl))
         {
             return null;
         }
 
+        var key = !string.IsNullOrWhiteSpace(config.EmbeddingApiKey)
+            ? config.EmbeddingApiKey.Trim()
+            : config.ChatApiKey?.Trim() ?? string.Empty;
+
         return new EmbeddingsTarget(
-            config.EmbeddingEndpointUrl.Trim().TrimEnd('/'),
-            config.EmbeddingApiKey?.Trim() ?? string.Empty,
-            config.EmbeddingModel.Trim(),
+            effectiveUrl.TrimEnd('/'),
+            key,
+            effectiveModel,
             Math.Clamp(config.TimeoutSeconds, 5, 120));
     }
 }

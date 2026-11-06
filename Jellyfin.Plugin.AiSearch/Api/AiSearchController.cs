@@ -250,31 +250,65 @@ public class AiSearchController : ControllerBase
 
     private async Task<ActionResult> ListModelsAsync(string endpointUrl, string apiKey, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(endpointUrl))
+        var effectiveUrl = !string.IsNullOrWhiteSpace(endpointUrl)
+            ? endpointUrl.Trim()
+            : Config.GetEffectiveModelsEndpointUrl();
+
+        var isOmniRoute = string.Equals(Config.ChatProvider, "omniroute", StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(effectiveUrl) && effectiveUrl.Contains("20128", StringComparison.OrdinalIgnoreCase));
+
+        var ids = new List<string>();
+
+        if (isOmniRoute)
         {
-            // No listing endpoint: the dashboard just keeps the typed model id.
-            return Ok(new { data = Array.Empty<object>() });
+            // First-class OmniRoute cascades & auto modes prioritized at the top
+            ids.AddRange(new[]
+            {
+                "auto/fast",
+                "gemini-fast-llm",
+                "fast-cascade",
+                "chat-cascade-mini",
+                "auto/chat",
+                "chat-cascade"
+            });
         }
 
-        try
+        if (!string.IsNullOrWhiteSpace(effectiveUrl))
         {
-            using var client = CreateClient(Config, apiKey);
-            using var resp = await client.GetAsync(endpointUrl.Trim(), cancellationToken).ConfigureAwait(false);
-            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            try
             {
-                _logger.LogWarning("AiSearch: models endpoint returned {Status}: {Body}", resp.StatusCode, body);
-                return Ok(new { data = Array.Empty<object>(), error = $"{(int)resp.StatusCode} {resp.StatusCode}: {body}" });
-            }
+                using var client = CreateClient(Config, apiKey);
+                if (isOmniRoute)
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-Session-Source", "jellyfin-ai-search");
+                }
 
-            var ids = ExtractModelIds(body);
+                using var resp = await client.GetAsync(effectiveUrl, cancellationToken).ConfigureAwait(false);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var remoteIds = ExtractModelIds(body);
+                    foreach (var rid in remoteIds)
+                    {
+                        if (!ids.Contains(rid, StringComparer.OrdinalIgnoreCase))
+                        {
+                            ids.Add(rid);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AiSearch: failed to list remote models from {Url}", effectiveUrl);
+            }
+        }
+
+        if (ids.Count > 0)
+        {
             return Ok(new { data = ids.Select(id => new { id }) });
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "AiSearch: failed to list models.");
-            return Ok(new { data = Array.Empty<object>(), error = ex.Message });
-        }
+
+        return Ok(new { data = Array.Empty<object>() });
     }
 
     /// <summary>

@@ -87,6 +87,20 @@ public class AiSearchTests
     }
 
     [Fact]
+    public void PluginConfiguration_GetEffectiveModelsAndEmbeddingUrls_WorkForOmniRoute()
+    {
+        var cfg = new PluginConfiguration { ChatProvider = "omniroute" };
+        cfg.GetEffectiveModelsEndpointUrl().Should().Be("http://omniroute:20128/v1/models");
+        cfg.GetEffectiveEmbeddingEndpointUrl().Should().Be("http://omniroute:20128/v1/embeddings");
+        cfg.GetEffectiveModel().Should().Be("auto/fast");
+
+        var target = EmbeddingsTarget.FromConfiguration(cfg);
+        target.Should().NotBeNull();
+        target!.BaseUrl.Should().Be("http://omniroute:20128/v1/embeddings");
+        target.Model.Should().Be("local-onnx/local-onnx-int8");
+    }
+
+    [Fact]
     public void PromptBuilder_BuildMessages_SupportsGerman()
     {
         var candidates = new List<CandidateMovie>

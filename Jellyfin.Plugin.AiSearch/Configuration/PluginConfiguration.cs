@@ -121,7 +121,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public string ChatTokenParameter { get; set; } = "auto";
 
     /// <summary>Gets or sets the model alias/id used for recommendations.</summary>
-    public string Model { get; set; } = string.Empty;
+    public string Model { get; set; } = "auto/fast";
 
     /// <summary>
     /// Gets or sets an optional URL that lists available models, to populate the
@@ -131,10 +131,48 @@ public class PluginConfiguration : BasePluginConfiguration
     public string ModelsEndpointUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets the effective models endpoint URL, taking into account provider defaults.
+    /// </summary>
+    public string GetEffectiveModelsEndpointUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(ModelsEndpointUrl))
+        {
+            return ModelsEndpointUrl.Trim();
+        }
+
+        return ChatProvider?.Trim().ToLowerInvariant() switch
+        {
+            "omniroute" => "http://omniroute:20128/v1/models",
+            "openai" => "https://api.openai.com/v1/models",
+            _ => string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Gets the effective model id to use, defaulting to OmniRoute's ultra-fast auto router.
+    /// </summary>
+    public string GetEffectiveModel()
+    {
+        if (!string.IsNullOrWhiteSpace(Model))
+        {
+            return Model.Trim();
+        }
+
+        return ChatProvider?.Trim().ToLowerInvariant() switch
+        {
+            "omniroute" => "auto/fast",
+            "openai" => "gpt-4o-mini",
+            "anthropic" => "claude-3-5-haiku-latest",
+            "gemini" => "gemini-2.0-flash",
+            _ => "auto/fast"
+        };
+    }
+
+    /// <summary>
     /// Gets or sets an optional cheaper model for the "Help me choose" interview
     /// (a small request). Blank reuses <see cref="Model"/>.
     /// </summary>
-    public string InterviewModel { get; set; } = string.Empty;
+    public string InterviewModel { get; set; } = "auto/fast";
 
     // 2. Retrieval, where candidate titles come from
 
@@ -179,6 +217,24 @@ public class PluginConfiguration : BasePluginConfiguration
     /// (<c>.../v1/embeddings</c>). Required for local retrieval.
     /// </summary>
     public string EmbeddingEndpointUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the effective embeddings endpoint URL, defaulting to OmniRoute's unified embeddings gateway when using OmniRoute.
+    /// </summary>
+    public string GetEffectiveEmbeddingEndpointUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(EmbeddingEndpointUrl))
+        {
+            return EmbeddingEndpointUrl.Trim();
+        }
+
+        return ChatProvider?.Trim().ToLowerInvariant() switch
+        {
+            "omniroute" => "http://omniroute:20128/v1/embeddings",
+            "openai" => "https://api.openai.com/v1/embeddings",
+            _ => string.Empty
+        };
+    }
 
     /// <summary>Gets or sets the key for the embedding endpoint (local Ollama needs none).</summary>
     public string EmbeddingApiKey { get; set; } = string.Empty;

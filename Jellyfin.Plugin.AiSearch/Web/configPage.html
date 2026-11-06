@@ -450,9 +450,20 @@
                         if (btn) { btn.disabled = false; }
                         return;
                     }
+                    var friendlyLabels = {
+                        'auto/fast': '⚡ auto/fast (Ultra-Fast 0€ Auto Router - Recommended)',
+                        'gemini-fast-llm': '🚀 gemini-fast-llm (Gemini 3.8 Flash Cascade < 1.4s)',
+                        'fast-cascade': '⚡ fast-cascade (Cerebras + Cloudflare 0€)',
+                        'chat-cascade-mini': '🎯 chat-cascade-mini (Lightweight & Cheap)',
+                        'auto/chat': '💬 auto/chat (Balanced High-Quality Chat)',
+                        'chat-cascade': '🌟 chat-cascade (Full Production Cascade)',
+                        'local-onnx/local-onnx-int8': '⚡ local-onnx/local-onnx-int8 (Host Sub-ms Embedding - 0€)',
+                        'openai/text-embedding-3-small': '🧠 openai/text-embedding-3-small (1536 dims)'
+                    };
                     sel.innerHTML = list.map(function (m) {
                         var id = (m && m.id) ? m.id : m;
-                        return '<option value="' + id + '">' + id + '</option>';
+                        var label = friendlyLabels[id] || id;
+                        return '<option value="' + id + '">' + label + '</option>';
                     }).join('');
                     if (selected) { sel.value = selected; }
                     if (!sel.value && list.length) { sel.value = (list[0].id || list[0]); }
@@ -655,27 +666,42 @@
                 omniroute: {
                     chat: 'http://omniroute:20128/v1/chat/completions',
                     models: 'http://omniroute:20128/v1/models',
-                    tokenParam: 'auto'
+                    tokenParam: 'auto',
+                    model: 'auto/fast',
+                    embeddingEndpoint: 'http://omniroute:20128/v1/embeddings',
+                    embeddingModel: 'local-onnx/local-onnx-int8'
                 },
                 openai: {
                     chat: 'https://api.openai.com/v1/chat/completions',
                     models: 'https://api.openai.com/v1/models',
-                    tokenParam: 'auto'
+                    tokenParam: 'auto',
+                    model: 'gpt-4o-mini',
+                    embeddingEndpoint: 'https://api.openai.com/v1/embeddings',
+                    embeddingModel: 'text-embedding-3-small'
                 },
                 anthropic: {
                     chat: 'https://api.anthropic.com/v1/messages',
                     models: '',
-                    tokenParam: 'none'
+                    tokenParam: 'none',
+                    model: 'claude-3-5-haiku-latest',
+                    embeddingEndpoint: '',
+                    embeddingModel: ''
                 },
                 gemini: {
                     chat: 'https://generativelanguage.googleapis.com/v1beta/models',
                     models: '',
-                    tokenParam: 'none'
+                    tokenParam: 'none',
+                    model: 'gemini-2.0-flash',
+                    embeddingEndpoint: '',
+                    embeddingModel: ''
                 },
                 custom: {
                     chat: '',
                     models: '',
-                    tokenParam: 'auto'
+                    tokenParam: 'auto',
+                    model: '',
+                    embeddingEndpoint: '',
+                    embeddingModel: ''
                 }
             };
 
@@ -693,6 +719,18 @@
                     }
                     if (def.tokenParam) {
                         page.querySelector('#ChatTokenParameter').value = def.tokenParam;
+                    }
+                    if (def.model) {
+                        var curModel = page.querySelector('#Model').value;
+                        if (!curModel || curModel === 'gpt-4o-mini' || curModel === 'auto/fast') {
+                            loadModels(def.model);
+                        }
+                    }
+                    if (def.embeddingEndpoint && !page.querySelector('#EmbeddingEndpointUrl').value.trim()) {
+                        page.querySelector('#EmbeddingEndpointUrl').value = def.embeddingEndpoint;
+                    }
+                    if (def.embeddingModel && !page.querySelector('#EmbeddingModel').value) {
+                        page.querySelector('#EmbeddingModel').value = def.embeddingModel;
                     }
                 }
             });

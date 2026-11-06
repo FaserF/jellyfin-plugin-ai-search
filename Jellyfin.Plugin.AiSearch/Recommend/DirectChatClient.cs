@@ -337,6 +337,15 @@ public class DirectChatClient
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
+        if (string.Equals(config.ChatProvider, "omniroute", StringComparison.OrdinalIgnoreCase)
+            || url.Contains("20128", StringComparison.OrdinalIgnoreCase)
+            || url.Contains("omniroute", StringComparison.OrdinalIgnoreCase))
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Session-Source", "jellyfin-ai-search");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cache-Strategy", "aggressive");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Failover-Zero-Delay", "true");
+        }
+
         using var response = await client.PostAsJsonAsync(url, payload, cancellationToken).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         return (response.IsSuccessStatusCode, (int)response.StatusCode, body);
