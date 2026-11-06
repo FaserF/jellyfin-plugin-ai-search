@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/Jellyfin.Plugin.AiSearch/thumb.png",
     "versions": [
       {
+        "version": "1.5.3.0",
+        "changelog": "Changes since `v1.5.2.0`:\n\n### 🐛 Bug Fixes\n\n- **search:** dynamic remote models, sub-ms title bypass, image fallback and connection routing ([e699db4](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/e699db4))",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/FaserF/jellyfin-plugin-ai-search/releases/download/v1.5.3.0/ai-search.zip",
+        "checksum": "09730c3fc3d801a630d56600a8d33565",
+        "timestamp": "2026-11-06T03:36:43Z"
+      },
+      {
         "version": "1.5.2.0",
         "changelog": "Changes since `v1.5.1.0`:\n\n### 🐛 Bug Fixes\n\n- **search:** prevent infinite loading spinner on empty queries and bump to v1.5.2.0 ([337375c](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/337375c))",
         "targetAbi": "12.0.0.0",
