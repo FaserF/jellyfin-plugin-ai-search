@@ -1124,17 +1124,42 @@
 
     function refreshHealth() {
         var a = api();
+        var endpoint = (a && typeof a.getUrl === 'function') ? a.getUrl('AiSearch/Health') : 'AiSearch/Health';
+
+        function applyHealth(h) {
+            usable = !!(h && h.enabled && h.configured);
+            popupEnabled = !h || h.popup !== false;
+            forcedLanguage = h && (h.language === 'fr' || h.language === 'en') ? h.language : null;
+            aiRow.enabled = !!(h && h.aiRow);
+            aiRow.explain = !!(h && h.explain);
+            updateLauncher();
+            aiRow.refresh();
+        }
+
+        if (typeof window.fetch === 'function') {
+            window.fetch(endpoint)
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (h) {
+                    if (h) { applyHealth(h); }
+                    else if (a && typeof a.ajax === 'function') {
+                        a.ajax({ type: 'GET', url: a.getUrl('AiSearch/Health'), dataType: 'json' })
+                            .then(applyHealth)
+                            .catch(function () { });
+                    }
+                })
+                .catch(function () {
+                    if (a && typeof a.ajax === 'function') {
+                        a.ajax({ type: 'GET', url: a.getUrl('AiSearch/Health'), dataType: 'json' })
+                            .then(applyHealth)
+                            .catch(function () { });
+                    }
+                });
+            return;
+        }
+
         if (!a || typeof a.ajax !== 'function' || typeof a.getUrl !== 'function') { return; }
         a.ajax({ type: 'GET', url: a.getUrl('AiSearch/Health'), dataType: 'json' })
-            .then(function (h) {
-                usable = !!(h && h.enabled && h.configured);
-                popupEnabled = !h || h.popup !== false;
-                forcedLanguage = h && (h.language === 'fr' || h.language === 'en') ? h.language : null;
-                aiRow.enabled = !!(h && h.aiRow);
-                aiRow.explain = !!(h && h.explain);
-                updateLauncher();
-                aiRow.refresh();
-            })
+            .then(applyHealth)
             .catch(function () { /* keep last known state */ });
     }
 
@@ -1230,7 +1255,7 @@
         function currentTerm() {
             var q = hashParam('query') || hashParam('searchTerm') || hashParam('q');
             if (!q) {
-                var input = document.querySelector('#searchPage input[type="search"], #searchPage input.search-input, #searchPage input');
+                var input = document.querySelector('#searchPage input[type="search"], #searchPage input.search-input, #searchPage input, input[type="search"], input.search-input, input.emby-input');
                 if (input && typeof input.value === 'string') {
                     q = input.value;
                 }
@@ -1403,7 +1428,7 @@
 
         function render() {
             pending = false;
-            var page = document.getElementById('searchPage');
+            var page = document.getElementById('searchPage') || document.querySelector('.searchPage, .page, [data-role="page"], .mainAnimatedPage, main');
             var term = currentTerm();
             if (!state.enabled || !isSearchPage() || !page || !term || term.length < 2) { removeRow(); return; }
 
@@ -1415,7 +1440,7 @@
 
             // Anchor under Jellyfin's own outcome (its result rows or its "no
             // results" message).
-            var results = page.querySelector('.searchResults') || page.querySelector('.noItemsMessage');
+            var results = page.querySelector('.searchResults') || page.querySelector('.noItemsMessage') || page.querySelector('.searchSuggestions') || page.firstElementChild || page;
             if (!results) { return; }
 
             var row = document.getElementById('ais-airow');
@@ -1449,7 +1474,13 @@
             // fighting over the exact spot makes the page twitch.
             if (results && (row.parentNode !== results.parentNode
                 || !(results.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING))) {
-                results.parentNode.insertBefore(row, results.nextSibling);
+                if (results === page) {
+                    page.appendChild(row);
+                } else if (results.nextSibling) {
+                    results.parentNode.insertBefore(row, results.nextSibling);
+                } else {
+                    results.parentNode.appendChild(row);
+                }
             }
 
             if (ready && lastTerm === term && !entry.explainQueued) {

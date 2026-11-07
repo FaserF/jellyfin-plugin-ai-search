@@ -252,6 +252,21 @@ public class AiMatchesController : ControllerBase
     private Jellyfin.Database.Implementations.Entities.User? GetUser()
     {
         var claim = User.FindFirst("Jellyfin-UserId")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(claim, out var id) && id != Guid.Empty ? _userManager.GetUserById(id) : null;
+        if (Guid.TryParse(claim, out var id) && id != Guid.Empty)
+        {
+            return _userManager.GetUserById(id);
+        }
+
+        if (Request.Query.TryGetValue("userId", out var qId) && Guid.TryParse(qId.ToString(), out var queryGuid) && queryGuid != Guid.Empty)
+        {
+            return _userManager.GetUserById(queryGuid);
+        }
+
+        if (Request.Headers.TryGetValue("X-Emby-UserId", out var hId) && Guid.TryParse(hId.ToString(), out var headerGuid) && headerGuid != Guid.Empty)
+        {
+            return _userManager.GetUserById(headerGuid);
+        }
+
+        return null;
     }
 }

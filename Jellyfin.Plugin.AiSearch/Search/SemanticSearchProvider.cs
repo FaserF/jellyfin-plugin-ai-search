@@ -152,14 +152,6 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
             return false;
         }
 
-        // The web client shows these matches in its own row, so its title
-        // results must not wait for them.
-        if (config.ShowAiSearchRow && _httpContextAccessor.HttpContext?.Request.Headers.ContainsKey(ClientRowHeader) == true)
-        {
-            RecordSkip(trace, "shown_in_ai_row", enabled: true);
-            return false;
-        }
-
         // When SemanticSearchFallbackOnly is active and query is not a sentence,
         // check whether native title matches already exist in the user's library.
         // If they do, step aside immediately with zero AI latency so native results show up instantly.

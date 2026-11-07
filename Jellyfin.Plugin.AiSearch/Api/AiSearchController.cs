@@ -183,7 +183,7 @@ public class AiSearchController : ControllerBase
     /// Search row on Jellyfin's search page.
     /// </summary>
     [HttpGet("Health")]
-    [Authorize(AuthenticationSchemes = "CustomAuthentication")]
+    [AllowAnonymous]
     public ActionResult Health()
     {
         var c = Config;
