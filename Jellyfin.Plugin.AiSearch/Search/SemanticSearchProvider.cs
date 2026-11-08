@@ -230,7 +230,8 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         // Jellyfin answers a search only once every provider has, so this
         // budget is the most meaning matches may ever add to a search. The
         // backend call itself is not cut short (see CoalescingCache).
-        var budget = TimeSpan.FromMilliseconds(Math.Clamp(config.SemanticSearchTimeoutMs, 250, 4000));
+        var maxBudget = TitleMatcher.LooksLikeSentenceQuery(term) ? 8000 : 5000;
+        var budget = TimeSpan.FromMilliseconds(Math.Clamp(config.SemanticSearchTimeoutMs, 250, maxBudget));
         var stopwatch = Stopwatch.StartNew();
         using var timeoutSource = new CancellationTokenSource(budget);
         using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);

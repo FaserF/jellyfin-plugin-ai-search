@@ -342,7 +342,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// provider answers, so this caps what meaning matches can add to a search. A slower backend call is not abandoned: it finishes in the
     /// background and its result is cached for the next keystroke.
     /// </summary>
-    public int SemanticSearchTimeoutMs { get; set; } = 2000;
+    public int SemanticSearchTimeoutMs { get; set; } = 3500;
 
     /// <summary>
     /// Gets or sets a value indicating whether the web client shows meaning

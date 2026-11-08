@@ -1399,6 +1399,8 @@
         function removeRow() {
             var row = document.getElementById('ais-airow');
             if (row && row.parentNode) { row.parentNode.removeChild(row); }
+            var noMsg = document.querySelector('.noItemsMessage');
+            if (noMsg) { noMsg.style.display = ''; }
         }
 
         function createRow() {
@@ -1449,7 +1451,17 @@
             var s = t();
             var ready = entry.status === 'done';
             var hasItems = ready && entry.items && entry.items.length > 0;
-            var isNoTitleHits = !!page.querySelector('.noItemsMessage');
+            var noMsg = page.querySelector('.noItemsMessage');
+            var isNoTitleHits = !!noMsg;
+
+            if (noMsg) {
+                // If AI row has matches or is currently loading them, hide Jellyfin's conflicting "Sorry! No results found"
+                if (hasItems || !ready) {
+                    noMsg.style.display = 'none';
+                } else {
+                    noMsg.style.display = '';
+                }
+            }
 
             var bannerHtml = (isNoTitleHits && hasItems)
                 ? '<div class="ais-nobanner">' + IC.sparkle + '<span>' + esc(s.noTitleMatchesBanner(term)) + '</span></div>'
