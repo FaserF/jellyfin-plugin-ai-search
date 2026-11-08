@@ -18,6 +18,7 @@ using Jellyfin.Plugin.AiSearch.Search;
 using Jellyfin.Plugin.AiSearch.SearchLog;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
@@ -696,10 +697,42 @@ public class AiSearchController : ControllerBase
             byId.TryAdd(item.Id, item);
         }
 
-        var picked = new List<BaseItem>(maxRetrieve);
-        foreach (var id in ids)
+        if (scopeKinds.Contains(BaseItemKind.Series))
         {
-            if (!byId.TryGetValue(id, out var item) || string.IsNullOrWhiteSpace(item.Name) || !item.IsVisibleStandalone(user))
+            var missingSeriesIds = new HashSet<Guid>();
+            foreach (var item in items)
+            {
+                if (item is Episode ep && ep.SeriesId != Guid.Empty && !byId.ContainsKey(ep.SeriesId))
+                {
+                    missingSeriesIds.Add(ep.SeriesId);
+                }
+            }
+
+            if (missingSeriesIds.Count > 0)
+            {
+                var parentSeriesList = _libraryManager.GetItemList(new InternalItemsQuery(user)
+                {
+                    ItemIds = missingSeriesIds.ToArray(),
+                    IncludeItemTypes = new[] { BaseItemKind.Series },
+                    IsVirtualItem = false,
+                    Recursive = true,
+                    DtoOptions = new DtoOptions(false)
+                });
+
+                foreach (var s in parentSeriesList)
+                {
+                    byId.TryAdd(s.Id, s);
+                }
+            }
+        }
+
+        var primary = new List<BaseItem>();
+        var secondary = new List<BaseItem>();
+        var seen = new HashSet<Guid>();
+
+        foreach (var item in byId.Values)
+        {
+            if (string.IsNullOrWhiteSpace(item.Name) || !item.IsVisibleStandalone(user))
             {
                 continue;
             }
@@ -709,11 +742,52 @@ public class AiSearchController : ControllerBase
                 continue;
             }
 
+            if (item is Series or Movie)
+            {
+                if (seen.Add(item.Id))
+                {
+                    primary.Add(item);
+                }
+            }
+            else if (item is Episode ep)
+            {
+                if (seen.Add(ep.Id))
+                {
+                    secondary.Add(ep);
+                }
+            }
+        }
+
+        var picked = new List<BaseItem>(maxRetrieve);
+        foreach (var item in primary)
+        {
             picked.Add(item);
             if (picked.Count >= maxRetrieve)
             {
                 break;
             }
+        }
+
+        var episodesPerSeries = new Dictionary<Guid, int>();
+        foreach (var item in secondary)
+        {
+            if (picked.Count >= maxRetrieve)
+            {
+                break;
+            }
+
+            if (item is Episode ep)
+            {
+                var count = episodesPerSeries.GetValueOrDefault(ep.SeriesId, 0);
+                if (count >= 2)
+                {
+                    continue;
+                }
+
+                episodesPerSeries[ep.SeriesId] = count + 1;
+            }
+
+            picked.Add(item);
         }
 
         return picked.Count > 0 ? picked : null;

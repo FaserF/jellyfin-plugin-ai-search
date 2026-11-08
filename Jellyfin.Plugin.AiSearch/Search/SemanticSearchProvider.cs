@@ -322,12 +322,11 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
         {
             if (System.Linq.Enumerable.Contains(mediaTypes, MediaType.Video))
             {
-                kinds.IntersectWith(new[] { BaseItemKind.Movie, BaseItemKind.Episode });
+                kinds.IntersectWith(new[] { BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Episode });
             }
             else
             {
-                // A non-video media type was requested; nothing we index qualifies
-                // (a Series itself carries no media type).
+                // A non-video media type was requested; nothing we index qualifies.
                 kinds.Clear();
             }
         }

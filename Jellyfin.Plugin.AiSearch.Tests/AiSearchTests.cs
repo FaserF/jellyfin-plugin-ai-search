@@ -157,6 +157,21 @@ public class AiSearchTests
         allowed.Should().ContainSingle().Which.Should().Be(BaseItemKind.Movie);
     }
 
+    [Fact]
+    public void SemanticSearchProvider_AllowedKinds_PreservesSeriesWhenVideoRequested()
+    {
+        var query = new SearchProviderQuery
+        {
+            SearchTerm = "test",
+            MediaTypes = new[] { MediaType.Video }
+        };
+
+        var allowed = SemanticSearchProvider.AllowedKinds(query);
+        allowed.Should().Contain(BaseItemKind.Movie);
+        allowed.Should().Contain(BaseItemKind.Series);
+        allowed.Should().Contain(BaseItemKind.Episode);
+    }
+
     [Theory]
     [InlineData(10.0, 5)]
     [InlineData(9.0, 5)]

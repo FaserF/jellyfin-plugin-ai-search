@@ -10,6 +10,8 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.AiSearch.Configuration;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 
 namespace Jellyfin.Plugin.AiSearch.Search;
@@ -114,7 +116,7 @@ public sealed class SemanticMatcher
             return result;
         }
 
-        var overfetch = take * 4;
+        var overfetch = Math.Max(take * 10, 150);
         var stopwatch = Stopwatch.StartNew();
         IReadOnlyList<(Guid ItemId, float Score)>? ranked;
         if (isRemote)
@@ -153,6 +155,16 @@ public sealed class SemanticMatcher
 
         result.RawHits = ranked.Count;
         var lookupStarted = stopwatch.ElapsedMilliseconds;
+
+        var scores = new Dictionary<Guid, float>();
+        foreach (var (id, score) in ranked)
+        {
+            if (!scores.TryGetValue(id, out var s) || score > s)
+            {
+                scores[id] = score;
+            }
+        }
+
         var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
         {
             ItemIds = ranked.Select(h => h.ItemId).ToArray(),
@@ -169,32 +181,130 @@ public sealed class SemanticMatcher
             byId.TryAdd(item.Id, item);
         }
 
-        var resultIds = new HashSet<Guid>(byId.Keys);
-        foreach (var (id, score) in ranked)
+        // If Series are allowed, inspect matched episodes and promote/load their parent Series
+        // so that series are always discovered as primary candidates.
+        if (kinds.Contains(BaseItemKind.Series))
         {
-            if (!byId.TryGetValue(id, out var item))
+            var missingSeriesIds = new HashSet<Guid>();
+            foreach (var item in items)
             {
-                continue;
+                if (item is Episode ep && ep.SeriesId != Guid.Empty)
+                {
+                    if (scores.TryGetValue(ep.Id, out var epScore))
+                    {
+                        var inferredScore = epScore * 0.99f;
+                        if (!scores.TryGetValue(ep.SeriesId, out var existingSeriesScore) || inferredScore > existingSeriesScore)
+                        {
+                            scores[ep.SeriesId] = inferredScore;
+                        }
+                    }
+
+                    if (!byId.ContainsKey(ep.SeriesId))
+                    {
+                        missingSeriesIds.Add(ep.SeriesId);
+                    }
+                }
             }
 
-            // Loading by id skips the library-access part of the user's query,
-            // so check visibility and parental rules item by item.
+            if (missingSeriesIds.Count > 0)
+            {
+                var parentSeriesList = _libraryManager.GetItemList(new InternalItemsQuery(user)
+                {
+                    ItemIds = missingSeriesIds.ToArray(),
+                    IncludeItemTypes = new[] { BaseItemKind.Series },
+                    IsVirtualItem = false,
+                    Recursive = true,
+                    AncestorIds = parentId is Guid parentGuid && parentGuid != Guid.Empty ? new[] { parentGuid } : Array.Empty<Guid>(),
+                    DtoOptions = new DtoOptions(false)
+                });
+
+                foreach (var s in parentSeriesList)
+                {
+                    byId.TryAdd(s.Id, s);
+                }
+            }
+        }
+
+        var primaryCandidates = new List<(BaseItem Item, float Score)>();
+        var secondaryCandidates = new List<(BaseItem Item, float Score)>();
+        var seenPrimary = new HashSet<Guid>();
+        var seenSecondary = new HashSet<Guid>();
+
+        foreach (var item in byId.Values)
+        {
             if (user is not null && !item.IsVisibleStandalone(user))
             {
                 continue;
             }
 
-            // Alternate versions of the same title share one primary; skip a
-            // version whose primary already made the cut.
-            if (item is Video video && video.PrimaryVersionId is Guid primaryId && resultIds.Contains(primaryId))
+            if (item is Video video && video.PrimaryVersionId is Guid primaryId && primaryId != item.Id && byId.ContainsKey(primaryId))
             {
                 continue;
             }
 
-            result.Matches.Add(new SemanticMatch(item, score, TitleMatcher.IsTitleMatch(item, term)));
-            if (result.Matches.Count >= take)
+            if (!scores.TryGetValue(item.Id, out var itemScore))
+            {
+                continue;
+            }
+
+            if (item is Series or Movie)
+            {
+                if (seenPrimary.Add(item.Id))
+                {
+                    primaryCandidates.Add((item, itemScore));
+                }
+            }
+            else if (item is Episode ep)
+            {
+                if (seenSecondary.Add(ep.Id))
+                {
+                    secondaryCandidates.Add((ep, itemScore));
+                }
+            }
+        }
+
+        primaryCandidates.Sort((a, b) => b.Score.CompareTo(a.Score));
+        secondaryCandidates.Sort((a, b) => b.Score.CompareTo(a.Score));
+
+        var addedIds = new HashSet<Guid>();
+
+        // 1. Primary: Series and Movies first
+        foreach (var (item, score) in primaryCandidates)
+        {
+            if (addedIds.Add(item.Id))
+            {
+                result.Matches.Add(new SemanticMatch(item, score, TitleMatcher.IsTitleMatch(item, term)));
+                if (result.Matches.Count >= take)
+                {
+                    break;
+                }
+            }
+        }
+
+        // 2. Secondary/Additional: Matching episodes (max 2 per series for diversity)
+        var episodesPerSeries = new Dictionary<Guid, int>();
+        var targetTotal = Math.Max(take, result.Matches.Count + Math.Min(5, secondaryCandidates.Count));
+        foreach (var (epItem, epScore) in secondaryCandidates)
+        {
+            if (result.Matches.Count >= targetTotal)
             {
                 break;
+            }
+
+            if (epItem is Episode ep)
+            {
+                var count = episodesPerSeries.GetValueOrDefault(ep.SeriesId, 0);
+                if (count >= 2)
+                {
+                    continue;
+                }
+
+                episodesPerSeries[ep.SeriesId] = count + 1;
+            }
+
+            if (addedIds.Add(epItem.Id))
+            {
+                result.Matches.Add(new SemanticMatch(epItem, epScore, TitleMatcher.IsTitleMatch(epItem, term)));
             }
         }
 
