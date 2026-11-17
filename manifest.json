@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/FaserF/jellyfin-plugin-ai-search/main/Jellyfin.Plugin.AiSearch/thumb.png",
     "versions": [
       {
+        "version": "1.5.4.0",
+        "changelog": "Changes since `v1.5.3.0`:\n\n### ✨ New Features\n\n- **search:** prioritize series and movies primarily with matching episodes secondarily ([90ff1c0](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/90ff1c0))\n\n### 🐛 Bug Fixes\n\n- **search:** remove 10s embedding timeout cap to prevent skipped titles during indexing\n- **search:** use `GetItemIds` to prevent SQLite EF Core GUID format parse exceptions\n- **search:** suppress false noItemsMessage during AI search and increase sentence query timeout ([e87c8ff](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/e87c8ff))\n- **search:** enable direct semantic fallback and robust client row mounting ([d1ab6f6](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/d1ab6f6))\n- **ui:** hide floating action button in admin dashboard (upstream PR #5)\n\n### 🔌 API & Streaming\n\n- **api:** improve models endpoint resolution with network fallback candidates ([de4314c](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/de4314c))",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/FaserF/jellyfin-plugin-ai-search/releases/download/v1.5.4.0/ai-search.zip",
+        "checksum": "b93216c536bb04f385057618cfc5c14b",
+        "timestamp": "2026-11-17T13:00:09Z"
+      },
+      {
         "version": "1.5.3.0",
         "changelog": "Changes since `v1.5.2.0`:\n\n### 🐛 Bug Fixes\n\n- **search:** dynamic remote models, sub-ms title bypass, image fallback and connection routing ([e699db4](https://github.com/FaserF/jellyfin-plugin-ai-search/commit/e699db4))",
         "targetAbi": "12.0.0.0",

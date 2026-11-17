@@ -42,7 +42,7 @@ public class EmbeddingsClient
         }
 
         using var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(Math.Min(target.TimeoutSeconds, 10));
+        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(target.TimeoutSeconds, 5, 120));
         if (!string.IsNullOrEmpty(target.ApiKey))
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", target.ApiKey);

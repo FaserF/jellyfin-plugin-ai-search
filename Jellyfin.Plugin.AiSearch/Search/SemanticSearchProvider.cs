@@ -354,8 +354,8 @@ public sealed class SemanticSearchProvider : IInternalSearchProvider
                 Limit = 1,
                 DtoOptions = new DtoOptions(false)
             };
-            var items = _libraryManager.GetItemList(itemQuery);
-            return items.Count > 0;
+            var itemIds = _libraryManager.GetItemIds(itemQuery);
+            return itemIds.Count > 0;
         }
         catch (Exception ex)
         {
