@@ -19,3 +19,5 @@ checksums.txt
 CHANGELOG_RELEASE.md
 CHANGELOG_SUMMARY.txt
 repo.tar.gz
+__pycache__/
+*.pyc
